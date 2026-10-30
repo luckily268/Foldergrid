@@ -1,0 +1,76 @@
+{
+  "name": "folder-grid",
+  "productName": "folder-grid",
+  "version": "0.2.1",
+  "description": "直接放在 Windows 桌面上的文件收纳图标，点击展开玻璃卡",
+  "main": "src/main.js",
+  "author": "luckily268",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luckily268/folder-grid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/luckily268/folder-grid/issues"
+  },
+  "homepage": "https://github.com/luckily268/folder-grid#readme",
+  "scripts": {
+    "postinstall": "install-electron",
+    "start": "electron .",
+    "check": "node scripts/check.cjs",
+    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs",
+    "test:smoke": "electron tests/electron-smoke.cjs",
+    "pack": "npm run check && npm test && electron-builder --win --dir --publish never",
+    "dist": "npm run check && npm test && electron-builder --win --x64 --publish never && node scripts/checksums.cjs",
+    "test:desktop": "electron tests/desktop-smoke.cjs"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.luckily268.foldergrid",
+    "productName": "folder-grid",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "src/**/*",
+      "media/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "executableName": "folder-grid"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "folder-grid",
+      "artifactName": "folder-grid-setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ]
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "koffi": "3.3.5"
+  }
+}

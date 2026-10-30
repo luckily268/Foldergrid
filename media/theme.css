@@ -1,0 +1,110 @@
+/*
+ * 桌面端主题。
+ * grid.css 原本是给 VSCode webview 写的，大量用了 --vscode-* 变量；
+ * 这里把那套变量用桌面端自己的配色实现一遍，grid.css 就可以一行不改地复用。
+ */
+
+:root {
+  --vscode-font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --vscode-font-size: 13px;
+  --vscode-editor-font-family: ui-monospace, Consolas, "Cascadia Mono", monospace;
+
+  --vscode-foreground: #e8ecf4;
+  --vscode-descriptionForeground: rgba(232, 236, 244, 0.52);
+  --vscode-editor-background: #0f1218;
+  --vscode-widget-border: rgba(255, 255, 255, 0.09);
+
+  --vscode-focusBorder: #5b8cff;
+  --vscode-textLink-foreground: #6ea8ff;
+
+  --vscode-button-background: #2f6fed;
+  --vscode-button-hoverBackground: #427ef5;
+  --vscode-button-foreground: #ffffff;
+
+  --vscode-notifications-background: #1b212b;
+  --vscode-notifications-foreground: #e8ecf4;
+}
+
+/* 桌面端背景：一层极淡的光晕，比纯色有空间感 */
+body {
+  background:
+    radial-gradient(58% 46% at 12% 0%, rgba(86, 124, 255, 0.16), transparent 62%),
+    radial-gradient(46% 38% at 90% 8%, rgba(255, 86, 176, 0.09), transparent 62%),
+    radial-gradient(60% 50% at 50% 108%, rgba(0, 214, 190, 0.08), transparent 64%),
+    #0b0d12;
+  user-select: none;
+  cursor: default;
+}
+
+/* 顶栏原来的纯色底会把光晕切成一条，改成透明 */
+.topbar {
+  background: transparent;
+}
+
+/* 顶栏里的目录路径可以点，用来换格子目录 */
+.brand span {
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.brand span:hover {
+  color: var(--vscode-foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 阅读文档时允许选中复制 */
+.pv-doc,
+.pv-doc * {
+  user-select: text;
+  cursor: auto;
+}
+
+/* 全局滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 输入框（新建 / 重命名）—— 桌面端没有 VSCode 的 showInputBox，得自己画一个 */
+.prompt-modal {
+  width: min(380px, 100%);
+}
+
+.prompt-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  user-select: text;
+}
+
+.prompt-input:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px rgba(91, 140, 255, 0.22);
+}
+
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
