@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self' file:; img-src 'self' file: data:; style-src 'self' file: 'unsafe-inline'; script-src 'self' file:; font-src 'self' file:;"
+  />
+  <title>folder-grid</title>
+  <link rel="stylesheet" href="./media/grid.css" />
+  <link rel="stylesheet" href="./media/theme.css" />
+  <link rel="stylesheet" href="./media/desktop.css" />
+  <link rel="stylesheet" href="./media/features.css" />
+  <link rel="stylesheet" href="./media/workspace.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">▦ folder-grid <span id="rootPath" title="点击更换格子目录"></span></div>
+    <div class="actions">
+      <button class="ghost" id="globalSearchBtn" title="搜索所有格子 (Ctrl+Shift+F)" aria-label="搜索所有格子">⌕</button>
+      <button class="ghost" id="organizeBtn" title="预览桌面分类" aria-label="预览桌面分类">▤</button>
+      <button class="ghost" id="portalBtn" title="映射外部文件夹" aria-label="映射外部文件夹">⊞</button>
+      <button class="ghost" id="rootBtn" title="选择文件目录">📂</button>
+      <button class="ghost" id="menuBtn" title="folder-grid 菜单">⋯</button>
+      <button class="ghost" id="newBtn" title="新建格子">＋</button>
+      <button class="ghost" id="refreshBtn" title="刷新">⟳</button>
+    </div>
+  </header>
+
+  <main class="grid" id="grid"></main>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="panel" id="panel">
+      <div class="panel-body">
+        <div class="panel-head">
+          <button class="back" id="back" title="返回 (Esc)">←</button>
+          <div class="panel-title" id="panelTitle"></div>
+          <div class="panel-count" id="panelCount"></div>
+          <button class="ghost" id="searchBtn" title="在这个格子里搜索 (Ctrl+F)">🔍</button>
+          <button class="ghost" id="revealBtn" title="在系统文件管理器中打开">↗</button>
+        </div>
+        <div class="search-row" id="searchRow" hidden>
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="searchInput" type="text" placeholder="在当前格子里搜索文件名…" />
+          <button class="search-clear" id="searchClear" type="button" title="清空">✕</button>
+        </div>
+        <div class="file-tools">
+          <label>排序 <select id="sortSelect"><option value="manual">自由摆放</option><option value="name">名称</option><option value="newest">最近修改</option><option value="type">类型</option><option value="size">大小</option></select></label>
+          <label>筛选 <select id="typeSelect"><option value="all">全部</option><option value="folder">文件夹</option><option value="document">文档</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音频</option><option value="archive">压缩包</option><option value="shortcut">快捷方式</option><option value="other">其他</option></select></label>
+          <span id="folderStatus"></span>
+        </div>
+        <div class="files" id="files"></div>
+        <div class="panel-footer"><label>底色 <input type="color" id="cellColor" value="#141a25" title="自定义格子底色" /></label><div id="trashZone" title="拖到这里放入系统回收站">♻ 回收站</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="workspace-layer" id="workspaceLayer" hidden>
+    <section class="workspace-card" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
+      <header class="workspace-head"><div><small>FOLDERGRID / 工作台</small><h1 id="workspaceTitle">搜索所有格子</h1></div><button id="workspaceClose" class="ghost" title="关闭 (Esc)" aria-label="关闭">✕</button></header>
+      <nav class="workspace-tabs" aria-label="工作台"><button data-page="search">搜索</button><button data-page="organize">桌面分类</button><button data-page="rules">分类规则</button><button data-page="help">使用提示</button></nav>
+      <div id="workspaceContent"></div>
+    </section>
+  </div>
+
+  <script src="./media/file-view.js"></script>
+  <script src="./media/grid.js"></script>
+  <script src="./media/workspace-ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+/* 透明桌面层：第一层按 Windows 桌面图标的尺度排列。 */
+html, body { background: transparent !important; }
+body { overflow: hidden; --desktop-icon-size: 48px; }
+.topbar {
+  position: absolute; top: 18px; right: 24px; z-index: 15;
+  padding: 8px 10px; border: 1px solid rgba(255,255,255,.16);
+  border-radius: 12px; background: rgba(24,29,39,.68);
+  backdrop-filter: blur(18px); box-shadow: 0 4px 20px rgba(0,0,0,.15);
+  max-width: min(520px, calc(100vw - 48px));
+}
+.brand { font-size: 12px; }
+.brand span { display: none; }
+.topbar .ghost { width: 26px; height: 26px; }
+.grid {
+  position: absolute; top: 78px; right: 24px; margin: 0; padding: 0 0 24px;
+  width: min(480px, calc(100vw - 48px)); max-height: calc(100vh - 102px);
+  overflow-y: auto; grid-template-columns: repeat(auto-fill, minmax(calc(var(--desktop-icon-size) + 28px), 1fr));
+  gap: 16px 8px; align-content: start;
+}
+.tile-wrap { min-width: 0; }
+.tile { gap: 5px; min-width: 0; width: 100%; padding: 4px 2px; border-radius: 5px; }
+.tile:hover { background: rgba(150,190,240,.15); }
+.tile-face {
+  width: var(--desktop-icon-size); height: var(--desktop-icon-size);
+  border-radius: calc(var(--desktop-icon-size) * .22); box-shadow: 0 2px 7px rgba(0,0,0,.18);
+}
+.tile-face .icon { font-size: calc(var(--desktop-icon-size) * .66); }
+.tile-name {
+  max-width: 100%; font-size: 12px; line-height: 16px; font-weight: 400;
+  color: white; text-shadow: 0 1px 3px #000, 0 0 5px rgba(0,0,0,.75);
+}
+.tile-edit, .tile-search { width: 19px; height: 19px; font-size: 10px; top: 0; }
+.tile-edit { left: calc(50% - var(--desktop-icon-size) / 2 - 5px); }
+.tile-search { right: calc(50% - var(--desktop-icon-size) / 2 - 5px); }
+.tile.new .tile-face { background: rgba(28,35,47,.4); border: 1px dashed rgba(255,255,255,.28); }
+.tile.new .tile-face .icon { font-size: 28px; }
+.tile .badge { top: -3px; right: -4px; font-size: 9px; padding: 1px 4px; }
+.empty-hint { padding: 20px 8px; color: white; text-shadow: 0 1px 4px #000; }
+.panel, .preview-card { background-color: rgba(20,26,37,.72); }
+.toast { background: rgba(24,29,39,.94); }

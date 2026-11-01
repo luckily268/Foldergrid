@@ -1,0 +1,60 @@
+.topbar { max-width: min(620px, calc(100vw - 36px)); }
+.workspace-layer[hidden] { display: none; }
+.workspace-layer { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; pointer-events: none; }
+.workspace-card { width: min(850px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; color: #e9eef8; background: rgba(20,27,39,.97); border: 1px solid #405067; border-radius: 24px; box-shadow: 0 24px 90px #0007; overflow: hidden; pointer-events: auto; font-size: 13px; }
+.workspace-head { padding: 25px 28px 18px; display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.workspace-head small { font-size: 10px; color: #9bb0c8; letter-spacing: 2px; }
+.workspace-head h1 { font-size: 24px; font-weight: 600; margin: 9px 0 0; }
+.workspace-tabs { display: flex; padding: 0 28px; gap: 22px; border-bottom: 1px solid #ffffff15; }
+.workspace-tabs button { padding: 12px 0; background: none; color: #a6b2c5; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
+.workspace-tabs button.selected { color: #b3d3ff; border-color: #83b7ff; }
+#workspaceContent { overflow: auto; padding: 20px 28px 28px; min-height: 220px; }
+.ws-intro { color: #aebed1; line-height: 1.8; margin: 0 0 18px; }
+.ws-search { display: flex; align-items: center; gap: 12px; border: 1px solid #627ea5; border-radius: 12px; padding: 0 15px; background: #0c1522; }
+.ws-search span { font-size: 24px; color: #96c4ff; }
+.ws-search input { background: none; border: 0; width: 100%; font: inherit; font-size: 16px; padding: 16px 0; outline: none; color: white; user-select: text; }
+.ws-results-head { display: flex; justify-content: space-between; gap: 12px; color: #91a4bb; font-size: 11px; margin: 16px 0 8px; }
+.ws-results { max-height: 360px; overflow: auto; }
+.ws-result-row { display: flex; border-bottom: 1px solid #ffffff08; }
+.ws-result { display: flex; align-items: center; gap: 12px; background: none; color: inherit; border: 0; padding: 12px 10px; text-align: left; width: 100%; min-width: 0; cursor: pointer; border-radius: 10px; }
+.ws-result:hover, .ws-result:focus-visible { background: #263c58; }
+.ws-result strong { display: block; font-weight: 500; overflow-wrap: anywhere; }
+.ws-result small { display: block; color: #94a8bf; font-size: 11px; margin-top: 5px; }
+.ws-file-icon { font-size: 25px; flex-shrink: 0; }
+.ws-file-size { margin-left: auto; font-size: 11px; color: #94a8bf; white-space: nowrap; }
+.ws-reveal { border: 0; background: none; color: #b3d3ff; cursor: pointer; width: 36px; flex-shrink: 0; }
+.ws-empty { padding: 35px 15px; text-align: center; color: #b8c8db; line-height: 1.8; }
+.ws-empty span { display: block; color: #8fa4bb; font-size: 12px; }
+.ws-callout { background: #1e3045; border: 1px solid #344e69; padding: 16px 18px; border-radius: 12px; margin-bottom: 18px; }
+.ws-callout strong { display: block; font-weight: 500; margin-bottom: 6px; color: #d2e6ff; }
+.ws-callout span { display: block; color: #acbdd1; font-size: 12px; line-height: 1.7; }
+.ws-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.ws-button { border: 1px solid #485b73; border-radius: 9px; padding: 10px 15px; color: #dce8f8; background: #233246; font: inherit; cursor: pointer; }
+.ws-button.primary { background: #a8cfff; border-color: #a8cfff; color: #102139; font-weight: 600; }
+.ws-button:disabled { opacity: .4; cursor: default; }
+.ws-plan-summary { display: flex; align-items: center; gap: 20px; margin-top: 20px; }
+.ws-plan-summary span, .ws-path { color: #97abc3; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.ws-table-wrap { max-height: 230px; overflow: auto; border: 1px solid #ffffff16; border-radius: 10px; margin: 12px 0 16px; }
+.ws-table-wrap table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+.ws-table-wrap th { background: #26374c; color: #b7cee7; position: sticky; top: 0; }
+.ws-table-wrap th, .ws-table-wrap td { padding: 9px 12px; border-bottom: 1px solid #ffffff0b; overflow-wrap: anywhere; }
+.ws-failures { margin-top: 18px; color: #ebc59e; line-height: 1.8; font-size: 12px; }
+.ws-failures summary { cursor: pointer; }
+.ws-rules { max-height: 330px; overflow: auto; }
+.ws-rule { display: grid; grid-template-columns: 20px 48px 1fr 1.2fr 1fr 82px; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid #ffffff13; }
+.ws-rule label { font-size: 10px; color: #9ab0c9; min-width: 0; }
+.ws-rule input:not([type="checkbox"]) { display: block; width: 100%; box-sizing: border-box; color: #e6f0fc; background: #0f1c2c; border: 1px solid #3c526e; border-radius: 6px; padding: 9px 7px; margin-top: 5px; font-size: 12px; user-select: text; }
+.ws-rule-number { color: #657f9e; }
+.ws-rule .ws-enabled { display: flex; align-items: center; gap: 3px; }
+.ws-rule-buttons { display: flex; gap: 4px; }
+.ws-rule-buttons button { padding: 4px; border: 0; background: #30425a; color: #c6d9ef; border-radius: 4px; cursor: pointer; }
+.ws-rule-buttons button:disabled { opacity: .25; }
+.ws-shortcuts > div { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 16px 0; border-bottom: 1px solid #ffffff15; }
+.ws-shortcuts small { color: #96aec9; grid-column: 1 / -1; }
+.ws-shortcuts kbd { background: #2b3c53; padding: 4px 8px; border-radius: 5px; font: 11px system-ui; }
+.file-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 8px 22px; border-bottom: 1px solid #ffffff14; color: #afc2d8; font-size: 11px; }
+.file-tools select { background: #26374b; border: 1px solid #405671; color: #e2edfc; border-radius: 6px; padding: 5px; margin-left: 4px; }
+#folderStatus { margin-left: auto; color: #9ecaff; }
+.portal-tile .tile-face::after { content: "↗"; position: absolute; bottom: -3px; left: -4px; background: #c2e3ff; color: #103755; border-radius: 4px; padding: 0 3px; font-size: 11px; }
+.workspace-card :focus-visible { outline: 2px solid #91c4ff; outline-offset: 2px; }
+@media (max-width: 650px) { .ws-rule { grid-template-columns: 20px 48px 1fr; }.ws-rule-buttons { grid-column: 2 / -1; }.workspace-card { border-radius: 16px; } .workspace-tabs { gap: 14px; } #workspaceContent, .workspace-head { padding-left: 18px; padding-right: 18px; } }

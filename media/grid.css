@@ -1,0 +1,1221 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --line: var(--vscode-widget-border, rgba(128, 128, 128, 0.22));
+  --soft: rgba(128, 128, 128, 0.1);
+  --softer: rgba(128, 128, 128, 0.06);
+
+  /* 玻璃卡 */
+  --glass-bg: linear-gradient(140deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  --glass-border: rgba(255, 255, 255, 0.17);
+  --glass-shadow: 0 40px 90px -34px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  --glass-split: rgba(255, 255, 255, 0.12);
+  --card-bg: rgba(255, 255, 255, 0.07);
+  --card-border: rgba(255, 255, 255, 0.11);
+  --card-hover: rgba(255, 255, 255, 0.13);
+}
+
+body.vscode-light {
+  --glass-bg: linear-gradient(140deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.56));
+  --glass-border: rgba(255, 255, 255, 0.95);
+  --glass-shadow: 0 30px 70px -30px rgba(30, 41, 59, 0.32), inset 0 1px 0 #fff;
+  --glass-split: rgba(15, 23, 42, 0.09);
+  --card-bg: rgba(255, 255, 255, 0.6);
+  --card-border: rgba(15, 23, 42, 0.09);
+  --card-hover: rgba(255, 255, 255, 0.95);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------- 顶栏 ---------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+  background: var(--vscode-editor-background);
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.brand span {
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 8px;
+  font-size: 11.5px;
+  display: inline-block;
+  max-width: 62vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.ghost {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--softer);
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  transition: background 0.15s ease, transform 0.2s var(--ease-pop);
+}
+
+.ghost:hover {
+  background: var(--soft);
+  transform: translateY(-1px);
+}
+
+.ghost:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* ---------------- 格子 ---------------- */
+
+.grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 22px 64px;
+  display: grid;
+  gap: 22px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  transition: opacity 0.32s ease, filter 0.32s ease, transform 0.42s var(--ease-out);
+}
+
+/* 打开格子时，网格轻轻后退，但不被遮住 */
+body.modal-open .grid {
+  opacity: 0.55;
+  filter: blur(2px);
+  transform: scale(0.988);
+}
+
+.empty-hint {
+  grid-column: 1 / -1;
+  padding: 56px 12px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 2;
+  color: var(--vscode-descriptionForeground);
+}
+
+.empty-hint span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.tile {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tile-face {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 26px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(158deg, hsl(var(--h) 72% 63%), hsl(var(--h) 68% 41%));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+    0 12px 22px -14px rgba(0, 0, 0, 0.85);
+  transition: transform 0.38s var(--ease-pop), box-shadow 0.38s ease, filter 0.3s ease;
+}
+
+.tile-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 46%);
+}
+
+.tile:hover .tile-face,
+.tile:focus-visible .tile-face {
+  transform: translateY(-5px) scale(1.055) rotate(-1.1deg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 24px 36px -18px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  filter: saturate(1.08);
+}
+
+.tile:active .tile-face {
+  transform: translateY(-2px) scale(1.02);
+  transition-duration: 0.12s;
+}
+
+.tile.drop-target .tile-face {
+  transform: translateY(-5px) scale(1.08);
+  box-shadow: 0 0 0 3px var(--vscode-focusBorder, #4c9aff), 0 24px 36px -18px rgba(0, 0, 0, 0.9);
+}
+
+.tile .icon {
+  display: block;
+  font-size: clamp(26px, 3.2vw, 38px);
+  line-height: 1;
+}
+
+.tile:hover .face-anim {
+  animation: jiggle 0.52s ease-in-out 1;
+}
+
+/* 自动排列：把文件小图标铺进格子 */
+.mini-grid {
+  display: grid;
+  gap: 3px;
+  aspect-ratio: 1;
+  align-content: center;
+}
+
+.mini {
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-style: normal;
+  line-height: 1;
+  overflow: hidden;
+  background: linear-gradient(150deg, hsl(var(--h) 62% 64%), hsl(var(--h) 58% 44%));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* 自定义图片：铺满整个格子 */
+.tile-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.tile:hover .tile-img {
+  animation: img-pop 0.45s var(--ease-pop);
+}
+
+@keyframes img-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 悬停时出现的小画笔，用来换图标 */
+.tile-wrap {
+  position: relative;
+}
+
+.tile-wrap > .tile {
+  width: 100%;
+}
+
+.tile-edit {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  background: rgba(20, 24, 32, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.18s ease, transform 0.2s var(--ease-pop);
+}
+
+.tile-wrap:hover .tile-edit,
+.tile-edit:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 右上角放大镜：悬停时顶替文件数徽章 */
+.tile-search {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  background: rgba(20, 24, 32, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.18s ease, transform 0.2s var(--ease-pop);
+}
+
+.tile-wrap:hover .tile-search,
+.tile-search:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@keyframes jiggle {
+  0% {
+    transform: rotate(0deg) translateY(0);
+  }
+  18% {
+    transform: rotate(-3.2deg) translateY(-1px);
+  }
+  42% {
+    transform: rotate(2.6deg) translateY(0);
+  }
+  64% {
+    transform: rotate(-1.6deg) translateY(0);
+  }
+  84% {
+    transform: rotate(0.9deg) translateY(0);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+}
+
+.badge {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.26);
+  color: rgba(255, 255, 255, 0.92);
+  transition: opacity 0.18s ease;
+}
+
+.tile-wrap:hover .badge {
+  opacity: 0;
+}
+
+.tile-name {
+  max-width: 100%;
+  font-size: 12.5px;
+  color: var(--vscode-foreground);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.2s ease;
+}
+
+.tile:hover .tile-name {
+  opacity: 1;
+}
+
+.tile.new .tile-face {
+  background: var(--softer);
+  border: 1.5px dashed var(--line);
+  box-shadow: none;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tile.new:hover .tile-face {
+  background: var(--soft);
+  border-color: var(--vscode-focusBorder, rgba(128, 128, 128, 0.5));
+  color: var(--vscode-foreground);
+}
+
+/* ---------------- 玻璃卡 ---------------- */
+
+/* 透明点击层：只负责"点外面关闭"，不压暗画面 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: transparent;
+}
+
+.overlay.show {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* 卡片本体：不铺满，居中，圆角从 50%（椭圆）过渡到大圆角 */
+.panel {
+  position: fixed;
+  z-index: 1;
+  overflow: visible;
+}
+
+/* 背后的椭圆光晕，颜色跟随格子 */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: -7%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    closest-side,
+    hsl(var(--h, 212) 90% 68% / 0.34),
+    hsl(var(--h, 212) 90% 68% / 0) 72%
+  );
+  filter: blur(34px);
+}
+
+body.vscode-light .panel::before {
+  opacity: 0.45;
+}
+
+.panel-body {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  backdrop-filter: blur(26px) saturate(180%);
+}
+
+.panel-head,
+.files {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.panel.open .panel-head,
+.panel.open .files {
+  opacity: 1;
+  transition: opacity 0.3s ease 0.14s;
+}
+
+.panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--glass-split);
+}
+
+.back {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--vscode-foreground);
+  font-size: 14px;
+  transition: background 0.18s ease, transform 0.2s var(--ease-pop);
+}
+
+.back:hover {
+  background: var(--card-hover);
+  transform: scale(1.06);
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panel-count {
+  font-size: 11.5px;
+  color: var(--vscode-descriptionForeground);
+  margin-left: auto;
+}
+
+/* 格内搜索 */
+.search-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--glass-split);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.search-row[hidden] {
+  display: none;
+}
+
+.panel.open .search-row {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.search-icon {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 2px 0;
+}
+
+.search-input::placeholder {
+  color: var(--vscode-descriptionForeground);
+}
+
+.search-clear {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  opacity: 0.55;
+  transition: opacity 0.16s ease, background 0.16s ease;
+}
+
+.search-clear:hover {
+  opacity: 1;
+  background: var(--card-hover);
+}
+
+/* ---------------- 文件图标（iOS 文件夹风格） ---------------- */
+
+.files {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 22px 22px 26px;
+  display: grid;
+  gap: 20px 10px;
+  align-content: start;
+  justify-items: center;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+}
+
+.files-empty {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 48px 10px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 2;
+  color: var(--vscode-descriptionForeground);
+}
+
+.files-empty span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.file {
+  position: relative;
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  text-align: center;
+  transition: transform 0.24s var(--ease-pop);
+}
+
+.file:hover {
+  transform: translateY(-2px) scale(1.04);
+}
+
+.file:active {
+  transform: scale(0.97);
+  transition-duration: 0.1s;
+}
+
+.fbody {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 图标本身：58px 的圆角方块，接近 iOS 文件夹里的应用图标 */
+.thumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  line-height: 1;
+  overflow: hidden;
+  background: linear-gradient(150deg, hsl(var(--h) 58% 46%), hsl(var(--h) 52% 31%));
+  box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.66), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.file:hover .thumb {
+  box-shadow: 0 12px 22px -10px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  filter: saturate(1.1) brightness(1.05);
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fname {
+  font-size: 11px;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  opacity: 0.88;
+  transition: opacity 0.18s ease;
+}
+
+.file:hover .fname {
+  opacity: 1;
+}
+
+/* 尺寸和时间默认收起，只留名字 —— 想恢复把 display 改成 block 即可 */
+.fmeta {
+  display: none;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 2px;
+}
+
+.reveal {
+  position: absolute;
+  top: -3px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.file:hover .reveal {
+  opacity: 1;
+}
+
+/* ---------------- 提示条 ---------------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 80;
+  transform: translate(-50%, 14px);
+  opacity: 0;
+  pointer-events: none;
+  max-width: 78vw;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  background: var(--vscode-notifications-background, #1f242c);
+  color: var(--vscode-notifications-foreground, #e8ecf4);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 36px -16px rgba(0, 0, 0, 0.7);
+  transition: opacity 0.24s ease, transform 0.3s var(--ease-pop);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ---------------- 图标选择器 ---------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.34);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+body.vscode-light .modal-backdrop {
+  background: rgba(15, 23, 42, 0.18);
+}
+
+.modal {
+  width: min(440px, 100%);
+  max-height: 84vh;
+  overflow: auto;
+  border-radius: 22px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  backdrop-filter: blur(26px) saturate(180%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--glass-split);
+}
+
+.modal-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-close {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: inherit;
+  transition: background 0.16s ease;
+}
+
+.modal-close:hover {
+  background: var(--card-hover);
+}
+
+.modal-body {
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.modal-label {
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 4px;
+}
+
+.auto-opt {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.auto-opt:hover {
+  background: var(--card-hover);
+}
+
+.auto-opt.active {
+  border-color: var(--vscode-focusBorder, #4c9aff);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder, #4c9aff);
+}
+
+.auto-preview {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.auto-text {
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auto-text em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+.emoji-btn {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: inherit;
+  transition: transform 0.18s var(--ease-pop), background 0.16s ease, border-color 0.16s ease;
+}
+
+.emoji-btn:hover {
+  background: var(--card-hover);
+  transform: translateY(-2px) scale(1.06);
+}
+
+.emoji-btn.active {
+  border-color: var(--vscode-focusBorder, #4c9aff);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder, #4c9aff);
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pick-btn {
+  padding: 7px 13px;
+  border-radius: 9px;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: inherit;
+  transition: background 0.16s ease;
+}
+
+.pick-btn:hover {
+  background: var(--card-hover);
+}
+
+.upload-hint {
+  font-size: 10.5px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.crop-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px dashed var(--line);
+}
+
+.crop-preview[hidden] {
+  display: none;
+}
+
+.crop-preview img {
+  width: 72px;
+  height: 72px;
+  border-radius: 17px;
+  object-fit: cover;
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.7);
+}
+
+.crop-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-primary {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.btn-primary:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.btn-ghost {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: var(--card-hover);
+}
+
+/* ---------------- 文档预览 ---------------- */
+
+.preview-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.preview-layer[hidden] {
+  display: none;
+}
+
+.preview-card {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(28px) saturate(185%);
+  backdrop-filter: blur(28px) saturate(185%);
+}
+
+.preview-head,
+.preview-body {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.preview-card.open .preview-head,
+.preview-card.open .preview-body {
+  opacity: 1;
+  transition: opacity 0.28s ease 0.14s;
+}
+
+.preview-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--glass-split);
+}
+
+.preview-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.preview-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-kind {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--vscode-descriptionForeground);
+}
+
+.preview-close {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: inherit;
+  transition: background 0.16s ease;
+}
+
+.preview-close:hover {
+  background: var(--card-hover);
+}
+
+.preview-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 24px 34px 44px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pv-doc {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 13.5px;
+  line-height: 1.78;
+  overflow-wrap: anywhere;
+}
+
+.pv-doc > :first-child {
+  margin-top: 0;
+}
+
+.pv-doc h1,
+.pv-doc h2,
+.pv-doc h3,
+.pv-doc h4,
+.pv-doc h5,
+.pv-doc h6 {
+  margin: 1.5em 0 0.5em;
+  line-height: 1.32;
+  font-weight: 600;
+}
+
+.pv-doc h1 {
+  font-size: 1.6em;
+}
+
+.pv-doc h2 {
+  font-size: 1.32em;
+}
+
+.pv-doc h3 {
+  font-size: 1.12em;
+}
+
+.pv-doc h4,
+.pv-doc h5,
+.pv-doc h6 {
+  font-size: 1em;
+}
+
+.pv-doc p {
+  margin: 0.7em 0;
+}
+
+.pv-doc ul,
+.pv-doc ol {
+  margin: 0.6em 0;
+  padding-left: 1.5em;
+}
+
+.pv-doc li {
+  margin: 0.25em 0;
+}
+
+.pv-doc hr {
+  border: 0;
+  border-top: 1px solid var(--glass-split);
+  margin: 1.5em 0;
+}
+
+.pv-doc a {
+  color: var(--vscode-textLink-foreground, #4c9aff);
+  text-decoration: none;
+}
+
+.pv-doc a:hover {
+  text-decoration: underline;
+}
+
+.pv-doc code {
+  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(128, 128, 128, 0.18);
+}
+
+.pv-doc pre.pv-code {
+  margin: 0.9em 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.13);
+  overflow: auto;
+}
+
+.pv-doc pre.pv-code code {
+  background: none;
+  padding: 0;
+}
+
+.pv-doc blockquote {
+  margin: 0.9em 0;
+  padding: 0.1em 0 0.1em 14px;
+  border-left: 3px solid var(--vscode-focusBorder, #4c9aff);
+  color: var(--vscode-descriptionForeground);
+}
+
+.pv-note {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12.5px;
+}
+
+.pv-img {
+  color: var(--vscode-descriptionForeground);
+}
+
+.pv-loading {
+  padding: 48px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.pv-fallback {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.pv-badge {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.pv-hint {
+  max-width: 360px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--vscode-descriptionForeground);
+}
+
+.pv-open {
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 0;
+  font-size: 12.5px;
+  cursor: pointer;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.pv-open:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
