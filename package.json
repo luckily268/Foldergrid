@@ -1,7 +1,7 @@
 {
   "name": "folder-grid",
   "productName": "folder-grid",
-  "version": "0.4.0-dev.3",
+  "version": "0.5.0",
   "description": "直接放在 Windows 桌面上的文件收纳图标，点击展开玻璃卡",
   "main": "src/main.js",
   "author": "luckily268",
@@ -15,21 +15,23 @@
   },
   "homepage": "https://github.com/luckily268/Foldergrid#readme",
   "scripts": {
-    "postinstall": "install-electron",
+    "postinstall": "install-electron && node scripts/vendor-pdf.cjs",
     "start": "electron .",
     "check": "node scripts/check.cjs",
-    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs tests/workspace.test.cjs tests/updates.test.cjs tests/startup-layouts.test.cjs",
+    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs tests/workspace.test.cjs tests/updates.test.cjs tests/startup-layouts.test.cjs tests/preview-plus.test.cjs tests/micro.test.cjs tests/bookcases.test.cjs",
     "test:smoke": "electron tests/electron-smoke.cjs",
     "pack": "npm run check && npm test && electron-builder --win --dir --publish never",
     "dist": "npm run check && npm test && electron-builder --win --x64 --publish never && node scripts/checksums.cjs",
     "test:desktop": "electron tests/desktop-smoke.cjs",
     "test:window": "electron tests/electron-smoke.cjs",
     "test:updates": "electron tests/update-download.cjs",
-    "test:startup": "electron tests/login-item-smoke.cjs"
+    "test:startup": "electron tests/login-item-smoke.cjs",
+    "test:pdf-package": "electron tests/packaged-preview.cjs"
   },
   "devDependencies": {
     "electron": "45.1.0",
-    "electron-builder": "26.18.0"
+    "electron-builder": "26.18.0",
+    "pdfjs-dist": "6.4.299"
   },
   "build": {
     "appId": "com.luckily268.foldergrid",
@@ -80,10 +82,10 @@
     ]
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0"
   },
   "dependencies": {
-    "koffi": "3.3.5",
-    "electron-updater": "6.8.12"
+    "electron-updater": "6.8.12",
+    "koffi": "3.3.5"
   }
 }

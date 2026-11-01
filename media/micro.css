@@ -1,0 +1,6 @@
+.tile.magnetic-target .tile-face { filter:brightness(1.15); transition:translate 80ms ease-out,filter 100ms; }
+.notes-modal { width:min(520px,calc(100vw - 40px)); }.notes-modal label,.new-notes label { display:block; font-size:12px; margin-top:12px; color:#b7c9df; }
+.notes-modal textarea,.notes-modal input,.new-notes textarea,.new-notes input { display:block; width:100%; box-sizing:border-box; margin-top:7px; border:1px solid #ffffff35; border-radius:8px; background:#152235; color:#edf4ff; padding:9px; font:inherit; user-select:text; resize:vertical; }
+.new-notes[hidden] { display:none; }.new-notes textarea { max-height:100px; }
+#panelNote { margin:0; padding:6px 22px; color:#b6c9e1; font-size:12px; white-space:pre-wrap; max-height:62px; overflow:auto; flex-shrink:0; user-select:text; }#panelNote[hidden]{display:none;}
+@media(prefers-reduced-motion:reduce){.tile.magnetic-target .tile-face{translate:none!important;}}

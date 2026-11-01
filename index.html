@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self' file:; img-src 'self' file: data:; style-src 'self' file: 'unsafe-inline'; script-src 'self' file:; font-src 'self' file:;"
+    content="default-src 'self' file:; img-src 'self' file: data:; style-src 'self' file: 'unsafe-inline'; script-src 'self' file: 'wasm-unsafe-eval'; worker-src 'self' file: blob:; font-src 'self' file: data: blob:; connect-src 'self' file:;"
   />
   <title>folder-grid</title>
   <link rel="stylesheet" href="./media/grid.css" />
@@ -12,7 +12,10 @@
   <link rel="stylesheet" href="./media/desktop.css" />
   <link rel="stylesheet" href="./media/updates.css" />
   <link rel="stylesheet" href="./media/features.css" />
+  <link rel="stylesheet" href="./media/preview-plus.css" />
+  <link rel="stylesheet" href="./media/micro.css" />
   <link rel="stylesheet" href="./media/workspace.css" />
+  <link rel="stylesheet" href="./media/compare.css" />
 </head>
 <body>
   <header class="topbar">
@@ -39,7 +42,9 @@
           <button class="back" id="back" title="返回 (Esc)">←</button>
           <div class="panel-title" id="panelTitle"></div>
           <div class="panel-count" id="panelCount"></div>
+          <button class="ghost" id="cellDetachBtn" title="在独立窗口中打开">▣</button>
           <button class="ghost" id="searchBtn" title="在这个格子里搜索 (Ctrl+F)">🔍</button>
+          <button class="ghost" id="cellNoteBtn" title="格子备注与本地会话">✎</button>
           <button class="ghost" id="revealBtn" title="在系统文件管理器中打开">↗</button>
         </div>
         <div class="search-row" id="searchRow" hidden>
@@ -47,6 +52,7 @@
           <input class="search-input" id="searchInput" type="text" placeholder="在当前格子里搜索文件名…" />
           <button class="search-clear" id="searchClear" type="button" title="清空">✕</button>
         </div>
+        <p id="panelNote" hidden></p>
         <div class="file-tools">
           <label>排序 <select id="sortSelect"><option value="manual">自由摆放</option><option value="name">名称</option><option value="newest">最近修改</option><option value="type">类型</option><option value="size">大小</option></select></label>
           <label>筛选 <select id="typeSelect"><option value="all">全部</option><option value="folder">文件夹</option><option value="document">文档</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音频</option><option value="archive">压缩包</option><option value="shortcut">快捷方式</option><option value="other">其他</option></select></label>
@@ -70,7 +76,10 @@
   </div>
 
   <script src="./media/file-view.js"></script>
+  <script src="./media/micro.js"></script>
   <script src="./media/grid.js"></script>
+  <script src="./media/bookcases.js"></script>
+  <script src="./media/cell-notes.js"></script>
   <script src="./media/workspace-ui.js"></script>
   <script src="./media/updates.js"></script>
 </body>

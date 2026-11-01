@@ -39,6 +39,9 @@ jobs:
       - name: 打包安装程序
         run: npm run dist
 
+      - name: 打包后的离线 PDF 和中文渲染测试
+        run: npm run test:pdf-package
+
       - name: 本地更新下载与校验测试（不执行安装器）
         run: npm run test:updates
 

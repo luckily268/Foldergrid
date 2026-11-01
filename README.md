@@ -1,6 +1,6 @@
-# Foldergrid Windows 开发版
+# folder-grid Windows
 
-基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.4.0-dev.3`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
+基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.5.0`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
 
 保留 v0.3.0 的桌面嵌入、玻璃卡预览、格子与文件自由拖动、回收站、底色、封面和位置保存。源码来源与比较见 [UPSTREAM.md](UPSTREAM.md)、[产品调研与开发说明](docs/产品调研与开发说明.md)。
 
@@ -50,7 +50,7 @@ macOS 可运行数据层测试和窗口模式界面测试；`npm start` 的真�
 npm run dist
 ```
 
-产物是 `dist/folder-grid-setup-0.4.0-dev.3.exe` 与 `dist/SHA256SUMS.txt`。已有 GitHub Actions 可在 Windows runner 检查、测试和打包；本次没有推送或创建 Release。附带的 Windows 解压试用包在 macOS 交叉打包，未作 Windows 实机验收，使用方式见 [Windows试用指南](docs/Windows试用指南.md)。
+产物是 `dist/folder-grid-setup-0.5.0.exe` 与 `dist/SHA256SUMS.txt`。已有 GitHub Actions 可在 Windows runner 检查、测试和打包；本次没有推送或创建 Release。附带的 Windows 解压试用包在 macOS 交叉打包，未作 Windows 实机验收，使用方式见 [Windows试用指南](docs/Windows试用指南.md)。
 
 ## 数据
 
@@ -67,3 +67,29 @@ npm run dist
 ## 开机自启动与布局
 
 点击工具条 ⚙ →「设置与布局」。开机自启动默认关闭，可随时勾选或取消；状态读取 Windows，尊重任务管理器中的禁用。工作、学习等布局可以命名保存和切换，包含工具条、格子及内部文件的自由摆放位置；锁定布局可防止误拖工具条和格子，文件仍可拖入/移出。每个收纳目录最多保存 20 个布局，所有目录共最多 100 个。删除布局仅删除位置记录。详见 [STARTUP-LAYOUTS.md](STARTUP-LAYOUTS.md)。
+
+
+## 预览与图标
+
+- PDF 支持离线翻页、缩放和适应宽度，PDF.js 与中文 CMap/字体、图像解码资源随应用打包。
+- 非文字文件单击查看大小、创建/修改/访问时间和路径，图片还显示缩略预览；双击使用默认程序打开。文字/PDF 预览也可展开文件属性。
+- 打开格子后可拖动顶栏空白或标题区域，记住各格子的展开位置。
+- 新建时可选择动物/常用图标、照片及外观；已有图标支持方形、圆形和独立图标样式，尺寸继续跟随 Windows 桌面图标。
+- 修复隐藏面板宽度为零导致首次打开图片竖排的问题，保留手动保存的位置。
+
+说明与限制见 [PREVIEW-PLUS.md](PREVIEW-PLUS.md)。构建依赖 PDF.js 已固定版本；npm ci 的 postinstall 自动准备离线资源，源码包也附带资源。
+
+
+## 微交互与格子备注
+
+设置 → 拖放微交互中可关闭落袋、磁吸、边缘阻尼，可独立开启轻音效（默认关闭）。反馈只在文件实际移动成功后播放，尊重系统减少动态效果。磁吸不会改变鼠标位置。新建时可填写最多 2000 字备注和本地会话文件/目录绝对路径；打开格子顶栏 ✎ 或右键「备注与本地会话…」可编辑。关联文件只定位，不自动执行。
+
+
+## 书柜与多窗口对比
+
+新建时选择「书柜分区」，支持温润木质、雾面玻璃、极简白色。桌面书柜可拖动，可在下拉菜单收纳格子、将格子拖入书柜；文件可直接拖到书柜标题或空白区域。格子按 ID 分组，文件目录不迁移。
+
+一个格子已打开时，再点击其他格子可打开独立窗口；顶栏 ▣ 可把当前格子放到独立窗口。预览顶栏 ↗ 可打开独立预览，已有预览时再单击其他文件也会打开独立预览。独立窗口可拖动、缩放、并排对比，同一文件/格子复用窗口，最多 12 个独立窗口。详见 [BOOKCASES-COMPARE.md](BOOKCASES-COMPARE.md)。
+
+
+正式版更新说明见 [v0.5.0 Release Note](RELEASE-NOTES-0.5.0.md)。

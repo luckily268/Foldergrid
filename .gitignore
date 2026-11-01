@@ -18,3 +18,6 @@ Thumbs.db
 # 本机测试及构建缓存
 .test-output/
 .builder-cache/
+
+# PDF.js assets are generated from the pinned build dependency
+media/vendor/pdfjs/

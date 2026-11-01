@@ -1,0 +1,4 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path');
+const {details,feedback}=require('../src/cell-details');
+test('反馈默认启用动效但静音，显式关闭被保留',()=>{assert.deepEqual(feedback(),{motion:true,sound:false});assert.deepEqual(feedback({motion:false,sound:true}),{motion:false,sound:true});});
+test('备注限长、保留中文，关联路径仅接受存在的本地文件',t=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fg-note-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const f=path.join(dir,'会话.txt');fs.writeFileSync(f,'正文');assert.deepEqual(details({note:' 项目摘记 ',sessionPath:f}),{note:'项目摘记',sessionPath:f});assert.throws(()=>details({note:'a'.repeat(2001)}),/2000/);for(const s of ['https://example.com','../missing',path.join(dir,'missing'),'\\\\server\\share'])assert.throws(()=>details({sessionPath:s}),/本地/);assert.equal(fs.readFileSync(f,'utf8'),'正文');});

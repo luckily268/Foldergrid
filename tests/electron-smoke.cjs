@@ -18,9 +18,11 @@ function finish(code, error) {
   fs.writeFileSync(path.join(out, 'smoke-result.json'), JSON.stringify({ passed: code === 0, error: error?.stack, events, electron: process.versions.electron }, null, 2));
   if (error) console.error(error); app.exit(code);
 }
-setTimeout(() => finish(1, new Error('启动测试超时')), 60000);
+setTimeout(() => finish(1, new Error('启动测试超时')), 90000);
 const pause = ms => new Promise(r => setTimeout(r, ms));
+let smokeWindowSeen=false;
 app.on('browser-window-created', (_, win) => {
+  if(smokeWindowSeen)return;smokeWindowSeen=true;
   win.webContents.on('preload-error', (_, p, e) => events.push(e.message));
   win.webContents.on('did-fail-load', (_, code, text) => events.push({ code, text }));
   win.webContents.on('did-finish-load', async () => {
@@ -105,6 +107,9 @@ app.on('browser-window-created', (_, win) => {
       await require('./features.cjs')(win,js,root,shelf,desktopMode);
       await require('./workspace-smoke.cjs')(win,js,root,shelf);
       await require('./settings-smoke.cjs')(win,js,root,shelf);
+      await require('./preview-plus-smoke.cjs')(win,js,root,shelf);
+      await require('./micro-smoke.cjs')(win,js,root,shelf);
+      await require('./bookcases-smoke.cjs')(win,js,root,shelf);
       assert.deepEqual(events, []); finish(0);
     } catch (error) { finish(1, error); }
   });

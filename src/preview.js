@@ -2,7 +2,9 @@
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
+const { pathToFileURL } = require("url");
 const PREVIEW_LIMIT = 12 * 1024 * 1024;
+const PDF_LIMIT = 64 * 1024 * 1024;
 
 function readZipEntry(buf, wanted) {
   const EOCD = 0x06054b50;
@@ -93,36 +95,43 @@ function readPreview(filePath) {
   } catch (err) {
     return { kind: "unsupported", label: "读取失败", hint: "文件可能已经被移走或删除" };
   }
-  if (!st.isFile()) return { kind: "unsupported", label: "文件夹", hint: "请在资源管理器中打开" };
+  const metadata = {
+    name: path.basename(filePath), path: filePath, extension: ext,
+    type: st.isDirectory() ? "文件夹" : ext ? ext.toUpperCase() + " 文件" : "文件",
+    bytes: st.isFile() ? st.size : null, isDirectory: st.isDirectory(),
+    createdAt: st.birthtimeMs > 0 ? st.birthtime.toISOString() : null,
+    modifiedAt: st.mtime.toISOString(), accessedAt: st.atime.toISOString()
+  };
+  const result = payload => ({ ...payload, metadata });
+  if (!st.isFile()) return result({ kind: "properties", label: "文件夹", hint: "双击或使用下方按钮打开文件夹" });
+  if (ext === "pdf") {
+    if (st.size > PDF_LIMIT) return result({ kind: "properties", label: "PDF", hint: "PDF 超过 64MB，请用默认程序打开" });
+    return result({ kind: "pdf", label: "PDF", bytes: new Uint8Array(fs.readFileSync(filePath)) });
+  }
+  if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) {
+    return result({ kind: "properties", label: ext.toUpperCase(), image: st.size <= PREVIEW_LIMIT ? pathToFileURL(filePath).href : "" });
+  }
   if (st.size > PREVIEW_LIMIT) {
-    return { kind: "unsupported", label: ext.toUpperCase(), hint: "文件超过 12MB，请用默认程序打开" };
+    return result({ kind: "properties", label: ext.toUpperCase(), hint: "文件超过 12MB，请用默认程序打开" });
   }
 
   if (ext === "md" || ext === "markdown" || ext === "txt" || ext === "log") {
-    return { kind: "markdown", text: fs.readFileSync(filePath, "utf8") };
+    return result({ kind: "markdown", text: fs.readFileSync(filePath, "utf8") });
   }
 
   if (ext === "docx") {
-    return { kind: "html", html: docxToHtml(fs.readFileSync(filePath)) };
-  }
-
-  if (ext === "pdf") {
-    return {
-      kind: "unsupported",
-      label: "PDF",
-      hint: "PDF 需要 pdf.js 这类渲染引擎才能内嵌显示，现在请用默认程序打开"
-    };
+    return result({ kind: "html", html: docxToHtml(fs.readFileSync(filePath)) });
   }
 
   if (ext === "doc") {
-    return {
+    return result({
       kind: "unsupported",
       label: "DOC",
       hint: "Word 97 的二进制格式没有可靠的纯文本提取方式，请用默认程序打开"
-    };
+    });
   }
 
-  return { kind: "unsupported", label: ext.toUpperCase() || "文件", hint: "这个格式暂不支持内嵌预览" };
+  return result({ kind: "properties", label: ext.toUpperCase() || "文件" });
 }
 
 

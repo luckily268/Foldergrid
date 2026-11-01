@@ -98,6 +98,7 @@
     checkbox.checked = startup.enabled === true; checkbox.disabled = !startup.supported;
     document.getElementById("startupStatus").textContent = startup.reason || (startup.blocked ? "已被 Windows 禁用，可重新勾选开启。" : startup.enabled ? "登录 Windows 后自动显示桌面格子。" : "已关闭，勾选后在登录 Windows 时启动。");
     document.getElementById("layoutLockToggle").checked = state.desktop?.layoutLocked === true;
+    const fx=state.feedback||{motion:true,sound:false}; document.getElementById("motionToggle").checked=fx.motion; document.getElementById("soundToggle").checked=fx.sound;
     const list = document.getElementById("layoutList"); list.innerHTML = "";
     (state.layouts || []).forEach(layout => {
       const row = document.createElement("div"); row.className = "ws-layout-row";
@@ -112,7 +113,7 @@
     if (!list.children.length) list.innerHTML = '<p class="ws-intro">还没有保存布局。试试保存一个“工作”或“学习”布局。</p>';
   }
   function renderSettings() {
-    content.innerHTML = '<section class="ws-setting"><label><input id="startupToggle" type="checkbox" />开机自启动</label><p id="startupStatus"></p></section><section class="ws-setting"><label><input id="layoutLockToggle" type="checkbox" />锁定工具条和格子位置</label><p>锁定后仍能打开格子、拖入和移出文件。解锁后可以拖动位置或切换布局。</p></section><section class="ws-setting"><h2>我的布局</h2><p>保存工具条、格子和格子内的自由摆放位置。切换只恢复现有格子的位置，不创建、删除或移动文件。不同收纳目录分别保存；切换前可先保存当前布局。</p><div class="ws-layout-save"><input id="layoutNameInput" maxlength="40" placeholder="布局名称，如：工作 / 学习" aria-label="布局名称" /><button id="saveLayoutPresetBtn" class="ws-button primary">保存当前布局</button></div><div id="layoutList"></div><p id="settingsFeedback" aria-live="polite"></p></section>';
+    content.innerHTML = '<section class="ws-setting"><label><input id="startupToggle" type="checkbox" />开机自启动</label><p id="startupStatus"></p></section><section class="ws-setting"><label><input id="layoutLockToggle" type="checkbox" />锁定工具条和格子位置</label><p>锁定后仍能打开格子、拖入和移出文件。解锁后可以拖动位置或切换布局。</p></section><section class="ws-setting"><h2>拖放微交互</h2><label><input id="motionToggle" type="checkbox" />落袋动效、磁吸与拖出阻尼</label><label><input id="soundToggle" type="checkbox" />文件放入成功时播放轻音效</label><p>音效默认关闭；系统减少动态效果开启时自动减少动效。磁吸只改变视觉反馈，不移动鼠标。</p></section><section class="ws-setting"><h2>我的布局</h2><p>保存工具条、格子和格子内的自由摆放位置。切换只恢复现有格子的位置，不创建、删除或移动文件。不同收纳目录分别保存；切换前可先保存当前布局。</p><div class="ws-layout-save"><input id="layoutNameInput" maxlength="40" placeholder="布局名称，如：工作 / 学习" aria-label="布局名称" /><button id="saveLayoutPresetBtn" class="ws-button primary">保存当前布局</button></div><div id="layoutList"></div><p id="settingsFeedback" aria-live="polite"></p></section>';
     document.getElementById("startupToggle").onchange = e => { e.target.disabled = true; send({ type: "setStartup", enabled: e.target.checked }); };
     document.getElementById("layoutLockToggle").onchange = e => send({ type: "lockLayout", locked: e.target.checked });
     const input = document.getElementById("layoutNameInput"); input.onfocus = () => send({ type: "focusInput", id: "layoutNameInput" });
@@ -121,6 +122,7 @@
       const r = document.querySelector(".topbar").getBoundingClientRect();
       send({ type: "saveLayoutPreset", name: input.value, cells, toolbar: { x: r.x, y: r.y } });
     };
+    ["motionToggle","soundToggle"].forEach(id=>document.getElementById(id).onchange=()=>send({type:"setFeedback",feedback:{motion:document.getElementById("motionToggle").checked,sound:document.getElementById("soundToggle").checked}}));
     refreshSettings();
   }
   function renderHelp() {

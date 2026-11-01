@@ -1,0 +1,34 @@
+module.exports=async function(win,js,root,shelf){
+ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),pause=ms=>new Promise(r=>setTimeout(r,ms));
+ const until=async(fn,label)=>{for(let i=0;i<70;i++){if(await fn())return;await pause(70);}throw Error(label);};
+ const meta=()=>JSON.parse(fs.readFileSync(path.join(shelf,'grid.json'),'utf8')),config=()=>JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8'));
+ const session=path.join(root,'会话.md');fs.writeFileSync(session,'# 会话摘记');
+ await js('document.getElementById("newBtn").click();document.getElementById("askInput").value="微交互项目";document.getElementById("newCellNote").value="首页改版，下一步做导航";document.getElementById("newCellSession").value='+JSON.stringify(session)+';document.getElementById("askOk").click()');
+ await until(()=>meta().folders.some(f=>f.name==='微交互项目'),'备注创建');const cell=meta().folders.find(f=>f.name==='微交互项目');assert.equal(cell.note,'首页改版，下一步做导航');assert.equal(cell.sessionPath,session);
+ await js('document.querySelector('+JSON.stringify('.tile[data-id="'+cell.id+'"]')+').click()');await pause(600);assert.match(await js('document.getElementById("panelNote").textContent'),/下一步/);
+ await js('document.getElementById("cellNoteBtn").click();document.getElementById("cellNote").value="更新后的备注 <script>";document.getElementById("noteSave").click()');await until(()=>meta().folders.find(f=>f.id===cell.id).note==='更新后的备注 <script>','编辑备注');assert.match(await js('document.getElementById("panelNote").textContent'),/<script>/);assert.equal(await js('document.getElementById("panelNote").children.length'),0);
+ await js('window.microEvents=[];window.fg.onMessage(e=>{if(e.data.type==="filesLanded")microEvents.push(e.data)})');
+ const incoming=path.join(root,'成功.txt');fs.writeFileSync(incoming,'放入正文');
+ await js('window.fg.send('+JSON.stringify({type:'move',folderId:cell.id,paths:[incoming]})+')');await until(()=>fs.existsSync(path.join(shelf,cell.name,'成功.txt')),'成功文件移动');await until(()=>js('microEvents.length===1'),'成功落袋事件');
+ await js('window.fg.send('+JSON.stringify({type:'move',folderId:cell.id,paths:[path.join(root,'missing.txt')]})+')');await pause(200);assert.equal(await js('microEvents.length'),1,'失败不播放成功反馈');
+ await js('document.getElementById("back").click()');await pause(500);
+ await js('(()=>{let t=document.querySelector('+JSON.stringify('.tile[data-id="'+cell.id+'"]')+'),r=t.getBoundingClientRect();t.dispatchEvent(new DragEvent("dragover",{bubbles:true,cancelable:true,clientX:r.x+15,clientY:r.y+15,dataTransfer:new DataTransfer()}))})()');
+ assert.equal(await js('!!document.querySelector(".magnetic-target")'),true);await js('document.dispatchEvent(new Event("dragend"))');assert.equal(await js('!!document.querySelector(".magnetic-target")'),false);
+ // Real pointer drag: a small visual tether at the boundary, then release on a different cell.
+ const target=meta().folders.find(f=>f.id!==cell.id&&f.kind!=='portal');
+ await js('window.fg.send('+JSON.stringify({type:'saveLayout',kind:'cell',folderId:target.id,position:{x:24,y:12}})+');window.fg.send({type:"refresh"})');await pause(250);
+ await js('document.querySelector('+JSON.stringify('.tile[data-id="'+cell.id+'"]')+').click()');await pause(600);
+ const from=await js('(()=>{let r=[...document.querySelectorAll(".file")].find(e=>e.textContent.includes("成功.txt")).getBoundingClientRect();return{x:Math.round(r.x+20),y:Math.round(r.y+15)}})()');
+ const edge=await js('(()=>{let r=document.getElementById("panel").getBoundingClientRect();return{x:Math.round(r.right+25),y:Math.round(r.top+150)}})()');
+ win.webContents.sendInputEvent({type:'mouseMove',...from});win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...from});win.webContents.sendInputEvent({type:'mouseMove',...edge});await pause(100);
+ const ghostX=await js('parseFloat(document.querySelector(".file-drag-ghost").style.left)');assert.ok(ghostX<edge.x-28,'边缘阻尼使代理图标轻微滞后');
+ const destination=await js('(()=>{let r=document.querySelector('+JSON.stringify('.tile[data-id="'+target.id+'"]')+').getBoundingClientRect();return{x:Math.round(r.x+r.width/2),y:Math.round(r.y+20)}})()');
+ win.webContents.sendInputEvent({type:'mouseMove',...destination});await pause(100);assert.equal(await js('!!document.querySelector(".magnetic-target")'),true);
+ win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...destination});await until(()=>fs.existsSync(path.join(shelf,target.name,'成功.txt')),'真实鼠标跨格子放入');assert.equal(fs.existsSync(path.join(shelf,cell.name,'成功.txt')),false);
+ await js('document.getElementById("back").click()');await pause(450);
+ await js('document.getElementById("settingsBtn").click();document.getElementById("motionToggle").click();document.getElementById("soundToggle").click()');
+ await until(()=>config().feedback?.motion===false&&config().feedback?.sound===true,'反馈设置持久化');
+ assert.equal(await js('window.cellMicro.motion()'),false);
+ await js('document.getElementById("soundToggle").click();document.getElementById("workspaceClose").click()');await pause(250);assert.equal(config().feedback.sound,false);
+ fs.writeFileSync(path.join(root,'../micro-result.json'),JSON.stringify({passed:true,checks:['new-note-session','edit-note-escaped','success-only-feedback','failed-move-no-effect','magnetic-hover-cleanup','settings-persist','motion-disable']},null,2));console.log('备注、会话关联、成功反馈与磁吸开关验证通过');
+};

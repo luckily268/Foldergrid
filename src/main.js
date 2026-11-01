@@ -99,13 +99,17 @@ const EXT_TO_STYLE = {
 /* ---------------- 运行时状态 ---------------- */
 
 let mainWindow = null;
+let compareWindows;
+const requestScope = new (require("async_hooks").AsyncLocalStorage)();
+function requestWindow() { return requestScope.getStore() || mainWindow; }
+const draggingWindows = new Set();
 let config = {};
 let startup = null, layouts = null;
 let watcher = null;
 let refreshTimer = null;
 let tray = null;
 let updates = null, updateTimer = null, updateInterval = null, activeOperations = 0, dragInProgress = false;
-function fileBusy() { return activeOperations > 0 || organizationBusy || dragInProgress; }
+function fileBusy() { return activeOperations > 0 || organizationBusy || dragInProgress || draggingWindows.size > 0; }
 async function withOperation(task) {
   if (updates && updates.installing) throw new Error("正在安装更新，请稍候");
   activeOperations++; try { return await task(); } finally { activeOperations--; }
@@ -180,11 +184,17 @@ function folderIcon(name) {
 }
 
 function normalizeIcon(icon) {
-  if (!icon) return { type: "auto" };
-  if (typeof icon === "string") return { type: "auto" };
-  if (icon.type === "image" && /^\.icons\/[a-zA-Z0-9_-]+\.png$/.test(icon.file)) return { type: "image", file: icon.file };
-  if (icon.type === "emoji" && icon.value) return { type: "emoji", value: icon.value };
-  return { type: "auto" };
+  const appearance = icon && ["card", "round", "plain"].includes(icon.appearance) ? icon.appearance : "card";
+  if (!icon || typeof icon !== "object") return { type: "auto", appearance };
+  if (icon.type === "image" && /^\.icons\/[a-zA-Z0-9_-]+\.png$/.test(icon.file)) return { type: "image", file: icon.file, appearance };
+  if (icon.type === "emoji" && typeof icon.value === "string" && icon.value.length <= 32 && icon.value.trim()) return { type: "emoji", value: icon.value, appearance };
+  return { type: "auto", appearance };
+}
+function imageIconBytes(dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,") || dataUrl.length > 2 * 1024 * 1024) throw new Error("封面图片无效或过大");
+  const image = nativeImage.createFromDataURL(dataUrl);
+  if (image.isEmpty()) throw new Error("封面图片无法读取");
+  return image.resize({ width: 256, height: 256 }).toPNG();
 }
 
 function fileStyle(name, isDir) {
@@ -344,7 +354,9 @@ function buildState() {
       icon: resolveIcon(dir, f.icon),
       fallbackIcon: folderIcon(f.name),
       path: fdir,
-      position: f.position, filePositions: f.filePositions || {}, baseColor: f.baseColor,
+      position: f.position, panelPosition: f.panelPosition, filePositions: f.filePositions || {}, baseColor: f.baseColor,
+      bookcaseId: f.bookcaseId || null, bookcaseStyle: f.bookcaseStyle || "wood",
+      note: f.note || "", sessionPath: f.sessionPath || "",
       kind: f.kind || "local",
       unavailable,
       sort: f.sort || "manual",
@@ -355,7 +367,7 @@ function buildState() {
   updatePortalWatchers(folders);
   let undoAvailable = false;
   try { undoAvailable = workspace.readHistory(historyPath()).some(b => b.entries.some(e => e.status === "moved")); } catch (err) { log(err); }
-  return { root: dir, folders: out, desktop: { ...desktopInfo, toolbar: config.toolbar, layoutLocked: config.layoutLocked === true }, startup: startup ? startup.getState() : {}, layouts: layouts ? layouts.list(dir) : [], rules: config.rules || workspace.DEFAULT_RULES, undoAvailable, shortcuts: config.shortcuts || {}, hidden: userHidden };
+  return { root: dir, folders: out, feedback: require("./cell-details").feedback(config.feedback), desktop: { ...desktopInfo, toolbar: config.toolbar, layoutLocked: config.layoutLocked === true }, startup: startup ? startup.getState() : {}, layouts: layouts ? layouts.list(dir) : [], rules: config.rules || workspace.DEFAULT_RULES, undoAvailable, shortcuts: config.shortcuts || {}, hidden: userHidden };
 }
 
 function historyPath() { return path.join(app.getPath("userData"), "organization-history.json"); }
@@ -383,22 +395,31 @@ function updatePortalWatchers(folders) {
 
 function pushState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send("fg", { type: "state", payload: buildState() });
+  const payload = buildState();
+  mainWindow.webContents.send("fg", { type: "state", payload });
+  if (compareWindows) compareWindows.broadcast(payload);
 }
 
 function send(msg) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send("fg", msg);
+  const target = requestWindow(); if (!target || target.isDestroyed()) return;
+  target.webContents.send("fg", msg);
 }
 
 /* ---------------- 格子操作 ---------------- */
 
-function createCell(name) {
-  const clean = cellName(name);
-  const dir = ensureShelf();
-  const dest = cellPath(dir, clean);
+function createCell(name, icon, dataUrl, rawDetails) {
+  const details = { ...require("./cell-details").details(rawDetails), ...require("./bookcases").options(rawDetails) };
+  const clean = cellName(name), dir = ensureShelf(), dest = cellPath(dir, clean);
   if (fs.existsSync(dest)) throw new Error("已有同名格子，请换一个名称");
+  const meta = readMeta(dir), id = makeId();
+  const bytes = icon?.type === "image" ? imageIconBytes(dataUrl) : null;
+  const selection = normalizeIcon(bytes ? { ...icon, file: ".icons/" + id + ".png" } : icon);
   fs.mkdirSync(dest);
+  try {
+    if (bytes) { fs.mkdirSync(path.join(dir, ".icons"), { recursive: true }); fs.writeFileSync(path.join(dir, selection.file), bytes); }
+    meta.folders.push({ ...details, id, name: clean, hue: PALETTE[meta.folders.length % PALETTE.length], icon: selection, order: meta.folders.length });
+    writeMeta(dir, meta);
+  } catch (error) { removeIconFile(dir, id); fs.rmdirSync(dest); throw error; }
   pushState();
 }
 
@@ -452,7 +473,7 @@ async function deleteCellImpl(folderId) {
     type: "warning",
     title: "删除格子",
     message: "要删除“" + before.name + "”吗？",
-    detail: "格子里的所有文件和子文件夹都会移到桌面，不会删除。桌面已有同名内容时，会为移入项自动另起名称，原文件不会被覆盖。",
+    detail: (before.kind === "bookcase" ? "书柜中的格子会返回桌面分区，格子内容保持原位置。书柜直接存放的文件将移到桌面。\n" : "") + "格子里的所有文件和子文件夹都会移到桌面，不会删除。桌面已有同名内容时，会为移入项自动另起名称，原文件不会被覆盖。",
     buttons: ["取消", "删除格子并移出文件"],
     defaultId: 0,
     cancelId: 0,
@@ -465,6 +486,7 @@ async function deleteCellImpl(folderId) {
   let count;
   try { count = removeCellToDesktop(cellPath(dir, target.name), app.getPath("desktop")); }
   finally { pushState(); }
+  require("./bookcases").detach(meta.folders, folderId);
   meta.folders = meta.folders.filter(f => f.id !== folderId);
   writeMeta(dir, meta);
   removeIconFile(dir, folderId);
@@ -482,16 +504,15 @@ function setIcon(folderId, icon, dataUrl) {
 
   if (icon && icon.type === "image") {
     if (!dataUrl) return;
-    const base64 = String(dataUrl).split(",")[1] || "";
-    if (!base64 || !String(dataUrl).startsWith("data:image/png;base64,") || base64.length > 2 * 1024 * 1024) throw new Error("封面图片无效或过大");
+    const bytes = imageIconBytes(dataUrl);
     fs.mkdirSync(path.join(dir, ".icons"), { recursive: true });
-    fs.writeFileSync(path.join(dir, ".icons", folderId + ".png"), Buffer.from(base64, "base64"));
-    target.icon = { type: "image", file: ".icons/" + folderId + ".png" };
+    fs.writeFileSync(path.join(dir, ".icons", folderId + ".png"), bytes);
+    target.icon = normalizeIcon({ ...icon, file: ".icons/" + folderId + ".png" });
   } else if (icon && icon.type === "emoji" && icon.value) {
-    target.icon = { type: "emoji", value: String(icon.value) };
+    target.icon = normalizeIcon(icon);
     if (previous.type === "image") removeIconFile(dir, folderId);
   } else {
-    target.icon = { type: "auto" };
+    target.icon = normalizeIcon(icon);
     if (previous.type === "image") removeIconFile(dir, folderId);
   }
 
@@ -513,6 +534,10 @@ function moveFiles(folderId, paths) {
   let moved = 0;
   paths.forEach(function (src) {
     try {
+      if (target.kind === 'bookcase' && typeof src === 'string') {
+        const member = meta.folders.find(f => f.kind !== 'portal' && path.resolve(src).toLowerCase() === path.resolve(cellPath(dir, f.name)).toLowerCase());
+        if (member) { require('./bookcases').assign(meta.folders, member.id, target.id); moved++; return; }
+      }
       if (moveOne(src, targetDir)) moved++;
     } catch (err) {
       failed.push(path.basename(String(src)) + "（" + err.message + "）");
@@ -525,7 +550,9 @@ function moveFiles(folderId, paths) {
       message: "移动了 " + moved + " 个，失败 " + failed.length + " 个 —— " + failed.join("、")
     });
   }
+  if (target.kind === 'bookcase') writeMeta(dir, meta);
   pushState();
+  if (moved) send({ type: "filesLanded", folderId, count: moved });
 }
 
 /* ---------------- 文档预览 ---------------- */
@@ -595,7 +622,7 @@ async function handleMessage(msg) {
       break;
 
     case "newCell":
-      createCell(msg.name);
+      createCell(msg.name, msg.icon, msg.dataUrl, msg);
       break;
 
     case "renameCell":
@@ -611,12 +638,19 @@ async function handleMessage(msg) {
       if (!target) return;
       Menu.buildFromTemplate([
         { label: "在资源管理器中打开", click: () => shell.openPath(target.kind === "portal" ? target.portalPath : cellPath(ensureShelf(), target.name)) },
+        { label: "备注与本地会话…", click: () => send({ type: "requestCellDetails", folderId: target.id }) },
         { label: "重命名…", click: () => send({ type: "requestRenameCell", folderId: target.id }) },
         { label: target.kind === "portal" ? "移除文件夹映射" : "删除格子…", click: () => deleteCell(target.id).catch(err => send({ type: "toast", message: err.message })) }
       ]).popup({ window: mainWindow });
       break;
     }
 
+    case "setIconAppearance": {
+      if (!["card", "round", "plain"].includes(msg.appearance)) return;
+      const dir = ensureShelf(), meta = readMeta(dir), target = meta.folders.find(f => f.id === msg.folderId);
+      if (target) { target.icon = { ...normalizeIcon(target.icon), appearance: msg.appearance }; writeMeta(dir, meta); pushState(); }
+      break;
+    }
     case "setIcon":
       setIcon(msg.folderId, msg.icon, msg.dataUrl);
       break;
@@ -700,13 +734,14 @@ async function handleMessage(msg) {
     }
 
     case "saveLayout": {
-      if (config.layoutLocked && msg.kind !== "file") throw new Error("请先解锁布局再拖动");
+      if (config.layoutLocked && !["file", "panel"].includes(msg.kind)) throw new Error("请先解锁布局再拖动");
       const point=msg.position;
       if(!point || ![point.x,point.y].every(Number.isFinite)) return;
       const position={x:Math.max(0,Math.min(30000,Math.round(point.x))),y:Math.max(0,Math.min(30000,Math.round(point.y)))};
       if(msg.kind==="toolbar") {config.toolbar=position;saveConfig();return;}
       const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
       if(msg.kind==="file") { if(f.kind==="portal")throw new Error("映射不支持移动文件");const full=shelfPath(dir,msg.path);if(path.dirname(full)!==cellPath(dir,f.name))throw new Error("文件不属于当前格子");f.sort="manual";f.filePositions=Object.assign(Object.create(null),f.filePositions||{});f.filePositions[path.basename(full)]=position; }
+      else if(msg.kind==="panel") f.panelPosition=position;
       else f.position=position;
       writeMeta(dir,meta);break;
     }
@@ -725,8 +760,8 @@ async function handleMessage(msg) {
       const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
       if(f.kind==="portal")throw new Error("请在资源管理器中修改映射文件夹的内容");
       const full=shelfPath(dir,msg.path);if(path.dirname(full)!==cellPath(dir,f.name))throw new Error("文件不属于当前格子");
-      let target;mainWindow.hide();
-      try {target=desktop.dropTarget();} finally {mainWindow.showInactive();}
+      let target; const visible = [mainWindow,...compareWindows.all()].filter(w => !w.isDestroyed() && w.isVisible()); visible.forEach(w => w.hide());
+      try {target=desktop.dropTarget();} finally {visible.forEach(w => w.showInactive());}
       let destination;
       if(target.type==="desktop")destination=app.getPath("desktop");
       else {
@@ -736,6 +771,7 @@ async function handleMessage(msg) {
       moveOne(full,destination);pushState();send({type:"toast",message:"已移到 "+destination});break;
     }
     case "desktopRegions": {
+      if (requestWindow() !== mainWindow) break;
       if (!Array.isArray(msg.rects) || msg.rects.length > 512) return;
       const [width, height] = mainWindow.getContentSize();
       const rects = msg.rects.filter(r => r && [r.x, r.y, r.width, r.height].every(Number.isFinite)).map(r => {
@@ -747,12 +783,35 @@ async function handleMessage(msg) {
     }
 
     case "focusInput":
-      if (!["askInput", "searchInput", "globalSearchInput", "rulesInput", "layoutNameInput"].includes(msg.id)) return;
-      mainWindow.focus();
-      mainWindow.webContents.focus();
+      if (!["askInput", "searchInput", "globalSearchInput", "rulesInput", "layoutNameInput", "pdfPage", "newCellNote", "newCellSession", "cellNote", "cellSession"].includes(msg.id)) return;
+      requestWindow().focus();
+      requestWindow().webContents.focus();
       send({ type: "inputFocused", id: msg.id });
       break;
 
+    case "openCompare": compareWindows.open(msg); break;
+    case "closeCompare": if (requestWindow() !== mainWindow) requestWindow().close(); break;
+    case "assignBookcase": {
+      const dir = ensureShelf(), meta = readMeta(dir);
+      require("./bookcases").assign(meta.folders, msg.folderId, msg.bookcaseId);
+      writeMeta(dir, meta); pushState(); break;
+    }
+    case "setBookcaseStyle": {
+      if (!require("./bookcases").STYLES.includes(msg.style)) throw new Error("书柜样式无效");
+      const dir = ensureShelf(), meta = readMeta(dir), f = meta.folders.find(f => f.id === msg.folderId && f.kind === "bookcase");
+      if (f) { f.bookcaseStyle = msg.style; writeMeta(dir, meta); pushState(); } break;
+    }
+    case "setFeedback":
+      config.feedback = require("./cell-details").feedback(msg.feedback); saveConfig(); pushState(); break;
+    case "saveCellDetails": {
+      const value = require("./cell-details").details(msg), dir = ensureShelf(), meta = readMeta(dir), f = meta.folders.find(f => f.id === msg.folderId);
+      if (!f) return; Object.assign(f, value); writeMeta(dir, meta); pushState(); send({type:"cellDetailsSaved",folderId:f.id}); break;
+    }
+    case "revealCellSession": {
+      const f = readMeta(ensureShelf()).folders.find(f => f.id === msg.folderId);
+      if (!f?.sessionPath || !fs.existsSync(f.sessionPath)) throw new Error("关联会话未设置或已被移走");
+      shell.showItemInFolder(f.sessionPath); break;
+    }
     case "setStartup":
       try { startup.setEnabled(msg.enabled); send({ type: "toast", message: msg.enabled ? "已开启开机自启动" : "已关闭开机自启动" }); }
       finally { pushState(); }
@@ -782,7 +841,7 @@ async function handleMessage(msg) {
     case "updateDownload": if (updates) await updates.download(); break;
     case "updateInstall": if (updates) updates.install(); break;
     case "updateDismiss": if (updates) updates.dismiss(); break;
-    case "dragState": dragInProgress = Boolean(msg.active); break;
+    case "dragState": if (msg.active) draggingWindows.add(requestWindow().id); else draggingWindows.delete(requestWindow().id); if (requestWindow() === mainWindow) dragInProgress = Boolean(msg.active); break;
     case "desktopMenu":
       if (tray) tray.popUpContextMenu();
       break;
@@ -801,15 +860,18 @@ async function handleMessage(msg) {
 }
 
 ipcMain.on("fg", function (event, msg) {
-  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame || !msg || typeof msg !== "object") return;
+  const origin = BrowserWindow.fromWebContents(event.sender);
+  if (!origin || (origin !== mainWindow && !compareWindows?.owns(origin)) || event.senderFrame !== event.sender.mainFrame || !msg || typeof msg !== "object") return;
+  requestScope.run(origin, () => {
   Promise.resolve()
     .then(function () {
-      const mutations = ["setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
+      const mutations = ["assignBookcase", "setBookcaseStyle", "setFeedback", "saveCellDetails", "setIcon", "setIconAppearance", "setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
       return mutations.includes(msg.type) ? withOperation(() => handleMessage(msg)) : handleMessage(msg);
     })
     .catch(function (err) {
       send({ type: "toast", message: String((err && err.message) || err) });
     });
+  });
 });
 
 /* ---------------- 选目录 ---------------- */
@@ -999,6 +1061,7 @@ else {
     if (updateInterval) clearInterval(updateInterval);
     if (updates) updates.dispose();
     quitting = true;
+    if (compareWindows) compareWindows.closeAll();
     if (desktopTimer) clearInterval(desktopTimer);
     stopWatcher();
     for (const watcher of portalWatchers.values()) watcher.close();
@@ -1008,6 +1071,8 @@ else {
   app.whenReady().then(() => {
     if (process.platform !== "win32" && !windowTest) throw new Error("桌面模式目前仅支持 Windows");
     config = loadConfig();
+    compareWindows = require("./compare-windows").createCompareWindows({ BrowserWindow, screen, preload: path.join(__dirname,"preload.js"), index: path.join(__dirname,"../index.html"), state: buildState, authorize: authorizedPath, log });
+    app.on("browser-window-created", (_event, win) => win.on("closed", () => draggingWindows.delete(win.id)));
     startup = require("./startup").createStartup({ app, enabled: app.isPackaged && !windowTest && process.platform === "win32" });
     layouts = require("./layouts").createLayouts(path.join(app.getPath("userData"), "layout-presets.json"));
     if (!windowTest) desktop = require("./desktop").createWindowsDesktop();
