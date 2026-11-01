@@ -1,7 +1,7 @@
 {
   "name": "folder-grid",
   "productName": "folder-grid",
-  "version": "0.4.0-dev.1",
+  "version": "0.4.0-dev.3",
   "description": "直接放在 Windows 桌面上的文件收纳图标，点击展开玻璃卡",
   "main": "src/main.js",
   "author": "luckily268",
@@ -18,12 +18,14 @@
     "postinstall": "install-electron",
     "start": "electron .",
     "check": "node scripts/check.cjs",
-    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs tests/workspace.test.cjs",
+    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs tests/workspace.test.cjs tests/updates.test.cjs tests/startup-layouts.test.cjs",
     "test:smoke": "electron tests/electron-smoke.cjs",
     "pack": "npm run check && npm test && electron-builder --win --dir --publish never",
     "dist": "npm run check && npm test && electron-builder --win --x64 --publish never && node scripts/checksums.cjs",
     "test:desktop": "electron tests/desktop-smoke.cjs",
-    "test:window": "electron tests/electron-smoke.cjs"
+    "test:window": "electron tests/electron-smoke.cjs",
+    "test:updates": "electron tests/update-download.cjs",
+    "test:startup": "electron tests/login-item-smoke.cjs"
   },
   "devDependencies": {
     "electron": "45.1.0",
@@ -61,17 +63,27 @@
       "shortcutName": "folder-grid",
       "artifactName": "folder-grid-setup-${version}.${ext}",
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
     },
     "asarUnpack": [
       "node_modules/koffi/**",
       "node_modules/@koromix/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "luckily268",
+        "repo": "Foldergrid",
+        "releaseType": "draft"
+      }
     ]
   },
   "engines": {
     "node": ">=22.12.0"
   },
   "dependencies": {
-    "koffi": "3.3.5"
+    "koffi": "3.3.5",
+    "electron-updater": "6.8.12"
   }
 }

@@ -30,11 +30,17 @@ jobs:
       - name: 文件操作回归测试
         run: npm test
 
+      - name: Windows 启动项测试（临时项，结束清理）
+        run: npm run test:startup
+
       - name: Electron 界面测试
         run: npm run test:smoke
 
       - name: 打包安装程序
         run: npm run dist
+
+      - name: 本地更新下载与校验测试（不执行安装器）
+        run: npm run test:updates
 
       - name: 保存可下载的安装包
         uses: actions/upload-artifact@v4
@@ -43,6 +49,8 @@ jobs:
           path: |
             dist/folder-grid-setup-*.exe
             dist/SHA256SUMS.txt
+            dist/update/*.yml
+            dist/*.blockmap
           if-no-files-found: error
 
       - name: 保存界面测试诊断
@@ -60,6 +68,9 @@ jobs:
           files: |
             dist/folder-grid-setup-*.exe
             dist/SHA256SUMS.txt
+            dist/update/*.yml
+            dist/*.blockmap
           fail_on_unmatched_files: true
           generate_release_notes: true
           draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

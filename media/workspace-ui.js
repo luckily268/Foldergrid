@@ -10,11 +10,12 @@
   function open(next) {
     page = next || "search"; layer.hidden = false;
     document.querySelectorAll(".workspace-tabs button").forEach(b => b.classList.toggle("selected", b.dataset.page === page));
-    title.textContent = { search: "搜索所有格子", organize: "给桌面腾点空间", rules: "按你的习惯分类", help: "随时找到需要的文件" }[page];
+    title.textContent = { search: "搜索所有格子", organize: "给桌面腾点空间", rules: "按你的习惯分类", settings: "让桌面适应你的习惯", help: "随时找到需要的文件" }[page];
     if (page === "search") renderSearch();
     if (page === "organize") renderOrganize();
     if (page === "rules") { draft = state.rules.map(r => ({ ...r })); renderRules(); }
     if (page === "help") renderHelp();
+    if (page === "settings") renderSettings();
   }
   function close() { layer.hidden = true; send({ type: "endPeek" }); document.getElementById("globalSearchBtn").focus(); }
   function renderSearch() {
@@ -91,6 +92,37 @@
     document.getElementById("addRuleBtn").onclick = () => { if (draft.length < 100) { draft.push({ target: "", extensions: "", keyword: "", enabled: true }); renderRules(); rows.lastElementChild?.scrollIntoView(); } };
     document.getElementById("saveRulesBtn").onclick = () => send({ type: "saveRules", rules: draft });
   }
+  function refreshSettings() {
+    const startup = state.startup || {}, checkbox = document.getElementById("startupToggle");
+    if (!checkbox) return;
+    checkbox.checked = startup.enabled === true; checkbox.disabled = !startup.supported;
+    document.getElementById("startupStatus").textContent = startup.reason || (startup.blocked ? "已被 Windows 禁用，可重新勾选开启。" : startup.enabled ? "登录 Windows 后自动显示桌面格子。" : "已关闭，勾选后在登录 Windows 时启动。");
+    document.getElementById("layoutLockToggle").checked = state.desktop?.layoutLocked === true;
+    const list = document.getElementById("layoutList"); list.innerHTML = "";
+    (state.layouts || []).forEach(layout => {
+      const row = document.createElement("div"); row.className = "ws-layout-row";
+      const text = document.createElement("span");
+      text.innerHTML = '<strong>' + escape(layout.name) + '</strong><small>' + layout.count + ' 个格子 · ' + escape(new Date(layout.createdAt).toLocaleString()) + '</small>';
+      const apply = document.createElement("button"); apply.className = "ws-button"; apply.textContent = "切换"; apply.disabled = state.desktop?.layoutLocked === true;
+      apply.onclick = () => send({ type: "applyLayoutPreset", id: layout.id });
+      const remove = document.createElement("button"); remove.className = "ws-button"; remove.textContent = "删除布局";
+      remove.onclick = () => send({ type: "deleteLayoutPreset", id: layout.id });
+      row.append(text, apply, remove); list.append(row);
+    });
+    if (!list.children.length) list.innerHTML = '<p class="ws-intro">还没有保存布局。试试保存一个“工作”或“学习”布局。</p>';
+  }
+  function renderSettings() {
+    content.innerHTML = '<section class="ws-setting"><label><input id="startupToggle" type="checkbox" />开机自启动</label><p id="startupStatus"></p></section><section class="ws-setting"><label><input id="layoutLockToggle" type="checkbox" />锁定工具条和格子位置</label><p>锁定后仍能打开格子、拖入和移出文件。解锁后可以拖动位置或切换布局。</p></section><section class="ws-setting"><h2>我的布局</h2><p>保存工具条、格子和格子内的自由摆放位置。切换只恢复现有格子的位置，不创建、删除或移动文件。不同收纳目录分别保存；切换前可先保存当前布局。</p><div class="ws-layout-save"><input id="layoutNameInput" maxlength="40" placeholder="布局名称，如：工作 / 学习" aria-label="布局名称" /><button id="saveLayoutPresetBtn" class="ws-button primary">保存当前布局</button></div><div id="layoutList"></div><p id="settingsFeedback" aria-live="polite"></p></section>';
+    document.getElementById("startupToggle").onchange = e => { e.target.disabled = true; send({ type: "setStartup", enabled: e.target.checked }); };
+    document.getElementById("layoutLockToggle").onchange = e => send({ type: "lockLayout", locked: e.target.checked });
+    const input = document.getElementById("layoutNameInput"); input.onfocus = () => send({ type: "focusInput", id: "layoutNameInput" });
+    document.getElementById("saveLayoutPresetBtn").onclick = () => {
+      const cells = [...document.querySelectorAll(".tile-wrap")].map(el => ({ id: el.querySelector(".tile").dataset.id, position: { x: parseFloat(el.style.left), y: parseFloat(el.style.top) } }));
+      const r = document.querySelector(".topbar").getBoundingClientRect();
+      send({ type: "saveLayoutPreset", name: input.value, cells, toolbar: { x: r.x, y: r.y } });
+    };
+    refreshSettings();
+  }
   function renderHelp() {
     const keys = [["peek", "Ctrl + Shift + Space", "呼出 / 收回桌面格子"], ["search", "Ctrl + Shift + F", "搜索所有格子"], ["hide", "Ctrl + Shift + H", "隐藏 / 显示格子"]];
     content.innerHTML = '<p class="ws-intro">文件夹映射让你从桌面访问其他磁盘上的资料，原文件保留在原位置。</p><div class="ws-callout"><strong>添加映射</strong><span>点击工具条 ⊞ 选择文件夹。映射仅供浏览、搜索、预览和打开；右键移除映射不会删除原文件。</span></div><div class="ws-shortcuts">' + keys.map(([key, label, desc]) => '<div><span>' + desc + '</span><kbd>' + label + '</kbd><small>' + (state.shortcuts[key]?.registered ? "已注册" : "未注册，可使用工具条或托盘菜单") + '</small></div>').join("") + '</div><p class="ws-intro">Esc 关闭当前面板；搜索覆盖各格子的第一层，不扫描全盘。映射暂不可用时，检查磁盘连接后点击刷新。</p>';
@@ -100,6 +132,7 @@
   document.querySelectorAll(".workspace-tabs button").forEach(b => b.onclick = () => open(b.dataset.page));
   document.getElementById("globalSearchBtn").onclick = () => open("search");
   document.getElementById("organizeBtn").onclick = () => open("organize");
+  document.getElementById("settingsBtn").onclick = () => { open("settings"); send({ type: "refresh" }); };
   document.getElementById("portalBtn").onclick = () => send({ type: "addPortal" });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && !layer.hidden) { e.preventDefault(); close(); }
@@ -112,8 +145,11 @@
       state = msg.payload;
       if (changedRoot && !layer.hidden && page === "organize") renderOrganize();
       if (!layer.hidden && page === "search") updateResults();
+      if (!layer.hidden && page === "settings") refreshSettings();
       const undo = document.getElementById("undoBtn"); if (undo) undo.disabled = !state.undoAvailable;
     }
+    if (msg.type === "requestSettings") { open("settings"); send({ type: "refresh" }); }
+    if (msg.type === "toast" && page === "settings" && !layer.hidden) document.getElementById("settingsFeedback").textContent = msg.message;
     if (msg.type === "requestGlobalSearch") open("search");
     if (msg.type === "organizationPlan") { plan = msg.payload; if (page === "organize") renderPlan(); }
     if (msg.type === "organizationResult") {

@@ -9,6 +9,7 @@ for (const dir of ['src', 'media', 'scripts', 'tests']) {
 }
 const pkg = require('../package.json'), lock = require('../package-lock.json');
 if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== 'v' + pkg.version) throw new Error('Git 标签必须等于 v' + pkg.version);
-if (lock.version !== pkg.version || JSON.stringify(lock.packages[''].devDependencies) !== JSON.stringify(pkg.devDependencies)) throw new Error('请更新 package-lock.json');
-if (JSON.stringify(lock.packages[''].dependencies) !== JSON.stringify(pkg.dependencies)) throw new Error('运行时依赖与锁文件不一致');
+if (lock.version !== pkg.version) throw new Error('请更新 package-lock.json');
+require('node:assert/strict').deepEqual(lock.packages[''].devDependencies, pkg.devDependencies, '开发依赖与锁文件不一致');
+require('node:assert/strict').deepEqual(lock.packages[''].dependencies, pkg.dependencies, '运行时依赖与锁文件不一致');
 console.log('语法、版本与锁文件检查通过');

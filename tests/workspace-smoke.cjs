@@ -50,6 +50,11 @@ module.exports = async function (win, js, root, shelf) {
     await until(() => fs.existsSync(source), '撤销分类');
     assert.equal(fs.readFileSync(source, 'utf8'), '分类正文');
     await js('document.getElementById("workspaceClose").click()');
+    await js('document.getElementById("updateBtn").click()');
+    await until(() => js('!document.getElementById("updateNotice").hidden'), '更新入口');
+    assert.match(await js('document.getElementById("updateMessage").textContent'), /开发运行/);
+    assert.equal(await js('document.getElementById("updateAction").disabled'), true);
+    await js('document.getElementById("updateClose").click()');
     fs.writeFileSync(path.join(root, '../workspace-result.json'), JSON.stringify({ passed: true, checks: ['portal-add', 'global-search', 'open-result', 'portal-read-only', 'portal-remove-keeps-files', 'persist-sort', 'type-filter', 'rules-save', 'plan-without-move', 'confirm-move', 'persistent-undo'] }, null, 2));
   } finally { electron.dialog.showOpenDialog = originalPicker; electron.dialog.showMessageBox = originalConfirm; electron.shell.openPath = originalOpen; }
 };

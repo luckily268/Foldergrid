@@ -36,6 +36,7 @@
   var searchQuery = "";
   var desktopIconSize = 48;
   var suppressClickUntil=0;
+  var layoutLocked=false;
   var activeDrag=false,refreshAfterDrag=false;
 
   /* ---------------- 工具 ---------------- */
@@ -1009,6 +1010,8 @@
       folders = (msg.payload && msg.payload.folders) || [];
       var desktop = msg.payload && msg.payload.desktop;
       if (desktop) {
+        layoutLocked = desktop.layoutLocked === true;
+        document.body.classList.toggle("layout-locked", layoutLocked);
         if(desktop.toolbar)place(document.querySelector(".topbar"),desktop.toolbar);
         desktopIconSize = Math.max(32, Math.min(128, Number(desktop.iconSize) || 48));
         document.body.style.setProperty("--desktop-icon-size", desktopIconSize + "px");
@@ -1149,11 +1152,13 @@
   function inRect(e,r){return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;}
   function movable(handle,el,done,fileMode){
     handle.addEventListener("pointerdown",function(e){
+      if (layoutLocked && !fileMode) return;
       if(e.button!==0 || e.target.closest(".reveal") || (!fileMode && e.target.closest(".tile-edit,.tile-search")))return;
       var start={x:e.clientX,y:e.clientY},origin={x:parseFloat(el.style.left)||el.offsetLeft,y:parseFloat(el.style.top)||el.offsetTop},moved=false,ghost=null;
       el.style.right="auto";
       handle.setPointerCapture(e.pointerId);
       activeDrag=true;
+      vscode.postMessage({type:"dragState",active:true});
       scheduleRegions();
       function move(ev){
         var dx=ev.clientX-start.x,dy=ev.clientY-start.y;
@@ -1173,6 +1178,7 @@
         el.classList.remove("dragging");
         if(ghost)ghost.remove();document.getElementById("trashZone").classList.remove("drag-over");
         activeDrag=false;
+        vscode.postMessage({type:"dragState",active:false});
         scheduleRegions();
         if(moved){
           if(!fileMode){el.style.left=Math.max(0,Math.min(innerWidth-el.offsetWidth,parseFloat(el.style.left)))+"px";el.style.top=Math.max(0,Math.min(innerHeight-el.offsetHeight,parseFloat(el.style.top)))+"px";}
@@ -1206,7 +1212,7 @@
     if(activeDrag){lastRegions="";if(!dragRegionsActive){dragRegionsActive=true;vscode.postMessage({type:"desktopRegions",rects:[{x:0,y:0,width:innerWidth,height:innerHeight}]});}regionsPending=false;return;}
     dragRegionsActive=false;
     var rects = [];
-    document.querySelectorAll(".topbar, .tile-wrap, .tile.new, .empty-hint, .panel, .preview-card, .modal, .workspace-card, .toast.show").forEach(function (el) {
+    document.querySelectorAll(".topbar, .tile-wrap, .tile.new, .empty-hint, .panel, .preview-card, .modal, .workspace-card, .update-notice, .toast.show").forEach(function (el) {
       if (el.closest("[hidden]")) return;
       var box = el.getBoundingClientRect();
       if (!box.width || !box.height || box.bottom <= 0 || box.right <= 0 || box.top >= innerHeight || box.left >= innerWidth) return;

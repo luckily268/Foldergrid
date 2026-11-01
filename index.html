@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./media/grid.css" />
   <link rel="stylesheet" href="./media/theme.css" />
   <link rel="stylesheet" href="./media/desktop.css" />
+  <link rel="stylesheet" href="./media/updates.css" />
   <link rel="stylesheet" href="./media/features.css" />
   <link rel="stylesheet" href="./media/workspace.css" />
 </head>
@@ -21,7 +22,9 @@
       <button class="ghost" id="organizeBtn" title="预览桌面分类" aria-label="预览桌面分类">▤</button>
       <button class="ghost" id="portalBtn" title="映射外部文件夹" aria-label="映射外部文件夹">⊞</button>
       <button class="ghost" id="rootBtn" title="选择文件目录">📂</button>
+      <button class="ghost" id="settingsBtn" title="设置与布局" aria-label="设置与布局">⚙</button>
       <button class="ghost" id="menuBtn" title="folder-grid 菜单">⋯</button>
+      <button class="ghost" id="updateBtn" title="检查软件更新">↑</button>
       <button class="ghost" id="newBtn" title="新建格子">＋</button>
       <button class="ghost" id="refreshBtn" title="刷新">⟳</button>
     </div>
@@ -56,11 +59,12 @@
   </div>
 
   <div class="toast" id="toast"></div>
+  <aside id="updateNotice" class="update-notice" hidden aria-live="polite"><span id="updateMessage"></span><button id="updateAction">检查更新</button><button id="updateClose" title="稍后再说">✕</button><progress id="updateProgress" max="100" value="0" hidden></progress></aside>
 
   <div class="workspace-layer" id="workspaceLayer" hidden>
     <section class="workspace-card" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
       <header class="workspace-head"><div><small>FOLDERGRID / 工作台</small><h1 id="workspaceTitle">搜索所有格子</h1></div><button id="workspaceClose" class="ghost" title="关闭 (Esc)" aria-label="关闭">✕</button></header>
-      <nav class="workspace-tabs" aria-label="工作台"><button data-page="search">搜索</button><button data-page="organize">桌面分类</button><button data-page="rules">分类规则</button><button data-page="help">使用提示</button></nav>
+      <nav class="workspace-tabs" aria-label="工作台"><button data-page="search">搜索</button><button data-page="organize">桌面分类</button><button data-page="rules">分类规则</button><button data-page="settings">设置与布局</button><button data-page="help">使用提示</button></nav>
       <div id="workspaceContent"></div>
     </section>
   </div>
@@ -68,5 +72,6 @@
   <script src="./media/file-view.js"></script>
   <script src="./media/grid.js"></script>
   <script src="./media/workspace-ui.js"></script>
+  <script src="./media/updates.js"></script>
 </body>
 </html>

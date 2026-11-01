@@ -1,6 +1,6 @@
 # Foldergrid Windows 开发版
 
-基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.4.0-dev.1`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
+基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.4.0-dev.3`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
 
 保留 v0.3.0 的桌面嵌入、玻璃卡预览、格子与文件自由拖动、回收站、底色、封面和位置保存。源码来源与比较见 [UPSTREAM.md](UPSTREAM.md)、[产品调研与开发说明](docs/产品调研与开发说明.md)。
 
@@ -50,10 +50,20 @@ macOS 可运行数据层测试和窗口模式界面测试；`npm start` 的真�
 npm run dist
 ```
 
-产物是 `dist/folder-grid-setup-0.4.0-dev.1.exe` 与 `dist/SHA256SUMS.txt`。已有 GitHub Actions 可在 Windows runner 检查、测试和打包；本次没有推送或创建 Release。附带的 Windows 解压试用包在 macOS 交叉打包，未作 Windows 实机验收，使用方式见 [Windows试用指南](docs/Windows试用指南.md)。
+产物是 `dist/folder-grid-setup-0.4.0-dev.3.exe` 与 `dist/SHA256SUMS.txt`。已有 GitHub Actions 可在 Windows runner 检查、测试和打包；本次没有推送或创建 Release。附带的 Windows 解压试用包在 macOS 交叉打包，未作 Windows 实机验收，使用方式见 [Windows试用指南](docs/Windows试用指南.md)。
 
 ## 数据
 
 每个普通格子对应根目录的真实子文件夹，`grid.json` 保存映射、封面、布局、排序等信息，`.icons/` 保存自定义封面。`%APPDATA%/folder-grid/config.json` 保存根目录与分类规则；同级 `organization-history.json` 保存撤销记录。文件预览沿用原版的 Markdown/TXT/LOG/DOCX 支持，PDF/旧 DOC 使用默认程序打开。
 
 保留原项目 MIT 许可证，见 [LICENSE](LICENSE)。
+
+
+## 软件内更新
+
+工具条 ↑ 或托盘菜单可检查更新，启动后也会自动检查。发现新版后下载，点击重启更新完成覆盖安装；文件操作期间不会重启。发布需要同时提供安装包、更新 yml 和 blockmap，详见 [AUTO-UPDATE.md](AUTO-UPDATE.md)。
+
+
+## 开机自启动与布局
+
+点击工具条 ⚙ →「设置与布局」。开机自启动默认关闭，可随时勾选或取消；状态读取 Windows，尊重任务管理器中的禁用。工作、学习等布局可以命名保存和切换，包含工具条、格子及内部文件的自由摆放位置；锁定布局可防止误拖工具条和格子，文件仍可拖入/移出。每个收纳目录最多保存 20 个布局，所有目录共最多 100 个。删除布局仅删除位置记录。详见 [STARTUP-LAYOUTS.md](STARTUP-LAYOUTS.md)。

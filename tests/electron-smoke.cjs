@@ -104,6 +104,7 @@ app.on('browser-window-created', (_, win) => {
       fs.writeFileSync(path.join(out, 'preview.png'), (await win.webContents.capturePage()).toPNG());
       await require('./features.cjs')(win,js,root,shelf,desktopMode);
       await require('./workspace-smoke.cjs')(win,js,root,shelf);
+      await require('./settings-smoke.cjs')(win,js,root,shelf);
       assert.deepEqual(events, []); finish(0);
     } catch (error) { finish(1, error); }
   });

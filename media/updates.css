@@ -1,0 +1,6 @@
+.update-notice {position:fixed;bottom:24px;right:24px;z-index:1500;display:flex;flex-wrap:wrap;gap:10px;align-items:center;max-width:min(460px,calc(100vw - 48px));padding:14px 16px;border-radius:14px;background:rgba(24,31,45,.96);border:1px solid #ffffff30;box-shadow:0 6px 26px #0005;color:#edf3ff;font:13px system-ui;}
+.update-notice[hidden]{display:none;}
+.update-notice progress{width:100%;height:7px;}
+.update-notice button{cursor:pointer;border:1px solid #ffffff30;border-radius:8px;background:#2f6fed;color:white;padding:6px 9px;}
+.update-notice button:disabled{opacity:.6;cursor:default;}
+#updateClose{background:transparent;}

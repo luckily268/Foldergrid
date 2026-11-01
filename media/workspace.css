@@ -58,3 +58,14 @@
 .portal-tile .tile-face::after { content: "↗"; position: absolute; bottom: -3px; left: -4px; background: #c2e3ff; color: #103755; border-radius: 4px; padding: 0 3px; font-size: 11px; }
 .workspace-card :focus-visible { outline: 2px solid #91c4ff; outline-offset: 2px; }
 @media (max-width: 650px) { .ws-rule { grid-template-columns: 20px 48px 1fr; }.ws-rule-buttons { grid-column: 2 / -1; }.workspace-card { border-radius: 16px; } .workspace-tabs { gap: 14px; } #workspaceContent, .workspace-head { padding-left: 18px; padding-right: 18px; } }
+
+.ws-setting { padding: 0 0 20px; margin: 0 0 20px; border-bottom: 1px solid #ffffff15; }
+.ws-setting > label { display:flex; align-items:center; gap:10px; font-size:15px; cursor:pointer; }
+.ws-setting h2 { font-size:16px; margin:0 0 10px; }
+.ws-setting p { color:#aebed1; line-height:1.8; font-size:12px; }
+.ws-layout-save { display:flex; gap:12px; margin:18px 0; flex-wrap:wrap; }
+.ws-layout-save input { flex:1; min-width:140px; background:#0c1522; border:1px solid #627ea5; border-radius:8px; color:white; padding:10px; user-select:text; }
+.ws-layout-row { display:flex; gap:10px; align-items:center; padding:12px 0; border-top:1px solid #ffffff13; }
+.ws-layout-row > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.ws-layout-row small { display:block; color:#94a8bf; margin-top:6px; }
+.layout-locked .topbar .brand, .layout-locked .tile { cursor:pointer; }

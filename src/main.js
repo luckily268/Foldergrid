@@ -100,9 +100,16 @@ const EXT_TO_STYLE = {
 
 let mainWindow = null;
 let config = {};
+let startup = null, layouts = null;
 let watcher = null;
 let refreshTimer = null;
 let tray = null;
+let updates = null, updateTimer = null, updateInterval = null, activeOperations = 0, dragInProgress = false;
+function fileBusy() { return activeOperations > 0 || organizationBusy || dragInProgress; }
+async function withOperation(task) {
+  if (updates && updates.installing) throw new Error("正在安装更新，请稍候");
+  activeOperations++; try { return await task(); } finally { activeOperations--; }
+}
 let desktop = null;
 let desktopTimer = null;
 let lastDesktopRect = "";
@@ -348,7 +355,7 @@ function buildState() {
   updatePortalWatchers(folders);
   let undoAvailable = false;
   try { undoAvailable = workspace.readHistory(historyPath()).some(b => b.entries.some(e => e.status === "moved")); } catch (err) { log(err); }
-  return { root: dir, folders: out, desktop: { ...desktopInfo, toolbar: config.toolbar }, rules: config.rules || workspace.DEFAULT_RULES, undoAvailable, shortcuts: config.shortcuts || {}, hidden: userHidden };
+  return { root: dir, folders: out, desktop: { ...desktopInfo, toolbar: config.toolbar, layoutLocked: config.layoutLocked === true }, startup: startup ? startup.getState() : {}, layouts: layouts ? layouts.list(dir) : [], rules: config.rules || workspace.DEFAULT_RULES, undoAvailable, shortcuts: config.shortcuts || {}, hidden: userHidden };
 }
 
 function historyPath() { return path.join(app.getPath("userData"), "organization-history.json"); }
@@ -427,7 +434,8 @@ function removeIconFile(dir, folderId) {
   }
 }
 
-async function deleteCell(folderId) {
+async function deleteCell(folderId) { return withOperation(() => deleteCellImpl(folderId)); }
+async function deleteCellImpl(folderId) {
   const dir = ensureShelf();
   const before = readMeta(dir).folders.find(f => f.id === folderId);
   if (!before) return;
@@ -574,6 +582,7 @@ async function handleMessage(msg) {
   switch (msg.type) {
     case "ready":
     case "refresh":
+      if (updates) updates.publish();
       pushState();
       break;
 
@@ -691,6 +700,7 @@ async function handleMessage(msg) {
     }
 
     case "saveLayout": {
+      if (config.layoutLocked && msg.kind !== "file") throw new Error("请先解锁布局再拖动");
       const point=msg.position;
       if(!point || ![point.x,point.y].every(Number.isFinite)) return;
       const position={x:Math.max(0,Math.min(30000,Math.round(point.x))),y:Math.max(0,Math.min(30000,Math.round(point.y)))};
@@ -737,12 +747,42 @@ async function handleMessage(msg) {
     }
 
     case "focusInput":
-      if (!["askInput", "searchInput", "globalSearchInput", "rulesInput"].includes(msg.id)) return;
+      if (!["askInput", "searchInput", "globalSearchInput", "rulesInput", "layoutNameInput"].includes(msg.id)) return;
       mainWindow.focus();
       mainWindow.webContents.focus();
       send({ type: "inputFocused", id: msg.id });
       break;
 
+    case "setStartup":
+      try { startup.setEnabled(msg.enabled); send({ type: "toast", message: msg.enabled ? "已开启开机自启动" : "已关闭开机自启动" }); }
+      finally { pushState(); }
+      break;
+    case "lockLayout":
+      if (dragInProgress) throw new Error("请先完成拖动");
+      if (typeof msg.locked !== "boolean") return;
+      config.layoutLocked = msg.locked; saveConfig(); pushState();
+      break;
+    case "saveLayoutPreset": {
+      if (dragInProgress) throw new Error("请先完成拖动");
+      const dir = ensureShelf();
+      layouts.save(dir, msg.name, readMeta(dir).folders, msg.cells, msg.toolbar);
+      pushState(); send({ type: "toast", message: "布局已保存" }); break;
+    }
+    case "applyLayoutPreset": {
+      if (dragInProgress || organizationBusy) throw new Error("请先完成当前操作");
+      if (config.layoutLocked) throw new Error("请先解锁布局再切换");
+      const dir = ensureShelf(), meta = readMeta(dir), restored = layouts.restore(dir, msg.id, meta.folders);
+      writeMeta(dir, { ...meta, folders: restored.folders });
+      config.toolbar = restored.toolbar; saveConfig(); pushState();
+      send({ type: "toast", message: "布局已切换，文件仍保留原处" }); break;
+    }
+    case "deleteLayoutPreset":
+      layouts.remove(ensureShelf(), msg.id); pushState(); break;
+    case "updateCheck": if (updates) await updates.check(true); break;
+    case "updateDownload": if (updates) await updates.download(); break;
+    case "updateInstall": if (updates) updates.install(); break;
+    case "updateDismiss": if (updates) updates.dismiss(); break;
+    case "dragState": dragInProgress = Boolean(msg.active); break;
     case "desktopMenu":
       if (tray) tray.popUpContextMenu();
       break;
@@ -764,7 +804,8 @@ ipcMain.on("fg", function (event, msg) {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame || !msg || typeof msg !== "object") return;
   Promise.resolve()
     .then(function () {
-      return handleMessage(msg);
+      const mutations = ["setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
+      return mutations.includes(msg.type) ? withOperation(() => handleMessage(msg)) : handleMessage(msg);
     })
     .catch(function (err) {
       send({ type: "toast", message: String((err && err.message) || err) });
@@ -773,7 +814,8 @@ ipcMain.on("fg", function (event, msg) {
 
 /* ---------------- 选目录 ---------------- */
 
-async function pickRoot() {
+async function pickRoot() { return withOperation(pickRootImpl); }
+async function pickRootImpl() {
   const result = await dialog.showOpenDialog({
     title: "选择格子存放的目录",
     defaultPath: shelfDir(),
@@ -791,7 +833,8 @@ async function pickRoot() {
   send({ type: "toast", message: "格子目录已切换到 " + dir });
 }
 
-async function addPortal() {
+async function addPortal() { return withOperation(addPortalImpl); }
+async function addPortalImpl() {
   const dir = ensureShelf();
   const result = await dialog.showOpenDialog(mainWindow, { title: "映射文件夹到桌面（保留原位置）", properties: ["openDirectory"] });
   if (result.canceled || !result.filePaths.length) return;
@@ -899,17 +942,19 @@ function createWindow() {
   mainWindow.webContents.on("will-attach-webview", event => event.preventDefault());
   mainWindow.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   mainWindow.webContents.on("did-fail-load", (_e, code, desc) => log("页面加载失败", code, desc));
-  mainWindow.webContents.on("render-process-gone", (_e, details) => log("渲染进程退出", details));
+  mainWindow.webContents.on("render-process-gone", (_e, details) => { dragInProgress = false; log("渲染进程退出", details); });
   mainWindow.webContents.on("console-message", event => log("[页面]", event.message));
   mainWindow.once("ready-to-show", () => {
     if (windowTest) { mainWindow.show(); return; }
     connectDesktop();
   });
   mainWindow.on("closed", () => {
+    dragInProgress = false;
     mainWindow = null;
     desktopInfo.connected = false;
     // 保留托盘；桌面宿主恢复后可重新建立桌面层。
   });
+  mainWindow.on("focus", () => { try { pushState(); } catch (err) { log(err); } });
   mainWindow.loadFile(path.join(__dirname, "..", "index.html"));
 }
 
@@ -931,6 +976,12 @@ function buildTray() {
     { label: "在资源管理器中打开", click: () => shell.openPath(shelfDir()) },
     { label: "刷新", click: () => { try { pushState(); } catch (err) { send({ type: "toast", message: err.message }); } } },
     { type: "separator" },
+    { label: "设置与布局…", click: () => { if (mainWindow) { userHidden = false; mainWindow.showInactive(); mainWindow.focus(); send({ type: "requestSettings" }); } } },
+    { label: "检查更新…", click: () => updates && updates.check(true) },
+    { label: "下载更新", click: () => updates && updates.download() },
+    { label: "重启安装更新", click: () => updates && updates.install() },
+    { label: "接收开发版更新", type: "checkbox", checked: require("./updates").defaultPrerelease(app.getVersion(), config.updatePrerelease), click: item => { config.updatePrerelease = item.checked; saveConfig(); if (updates) updates.setPrerelease(item.checked); } },
+    { type: "separator" },
     { label: "退出 folder-grid", click: () => app.quit() }
   ]));
   tray.on("click", () => { if (mainWindow) { userHidden = false; mainWindow.showInactive(); connectDesktop(); } });
@@ -942,7 +993,11 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else {
   app.on("second-instance", () => { if (mainWindow) { userHidden = false; mainWindow.showInactive(); connectDesktop(); } });
-  app.on("before-quit", () => {
+  app.on("before-quit", event => {
+    if (fileBusy()) { event.preventDefault(); send({ type: "toast", message: "正在处理文件或拖动，请完成后再退出" }); return; }
+    if (updateTimer) clearTimeout(updateTimer);
+    if (updateInterval) clearInterval(updateInterval);
+    if (updates) updates.dispose();
     quitting = true;
     if (desktopTimer) clearInterval(desktopTimer);
     stopWatcher();
@@ -953,7 +1008,19 @@ else {
   app.whenReady().then(() => {
     if (process.platform !== "win32" && !windowTest) throw new Error("桌面模式目前仅支持 Windows");
     config = loadConfig();
+    startup = require("./startup").createStartup({ app, enabled: app.isPackaged && !windowTest && process.platform === "win32" });
+    layouts = require("./layouts").createLayouts(path.join(app.getPath("userData"), "layout-presets.json"));
     if (!windowTest) desktop = require("./desktop").createWindowsDesktop();
+    updates = require("./updates").createUpdates({
+      updater: app.isPackaged && !windowTest ? require("electron-updater").autoUpdater : null,
+      enabled: app.isPackaged && !windowTest && process.platform === "win32", currentVersion: app.getVersion(),
+      prerelease: require("./updates").defaultPrerelease(app.getVersion(), config.updatePrerelease), isBusy: fileBusy, notify: payload => send({ type: "updateState", payload }), log,
+      prepareInstall: () => { quitting = true; }, cancelInstall: () => { quitting = false; }
+    });
+    if (app.isPackaged && !windowTest) {
+      updateTimer = setTimeout(() => updates.check(false), 30000); updateTimer.unref();
+      updateInterval = setInterval(() => updates.check(false), 6 * 60 * 60 * 1000); updateInterval.unref();
+    }
     buildTray();
     startWatcher(ensureShelf());
     createWindow();
