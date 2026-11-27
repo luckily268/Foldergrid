@@ -98,6 +98,17 @@ const EXT_TO_STYLE = {
 
 /* ---------------- 运行时状态 ---------------- */
 
+const systemIconCache = new Map();
+async function requestSystemIcons(files) {
+  for (const file of files) {
+    const key = file.path;
+    if (systemIconCache.has(key)) continue;
+    systemIconCache.set(key, "");
+    try { systemIconCache.set(key, (await app.getFileIcon(key, {size:"normal"})).toDataURL()); } catch (_) {}
+    if (systemIconCache.size > 1500) systemIconCache.delete(systemIconCache.keys().next().value);
+  }
+  pushState();
+}
 let mainWindow = null;
 let compareWindows;
 const requestScope = new (require("async_hooks").AsyncLocalStorage)();
@@ -183,9 +194,11 @@ function folderIcon(name) {
   return "📁";
 }
 
+const cellPatterns = require("../media/patterns");
 function normalizeIcon(icon) {
   const appearance = icon && ["card", "round", "plain"].includes(icon.appearance) ? icon.appearance : "card";
   if (!icon || typeof icon !== "object") return { type: "auto", appearance };
+  if (icon.type === "pattern" && Object.hasOwn(cellPatterns, icon.value)) return { type: "pattern", value: icon.value, appearance };
   if (icon.type === "image" && /^\.icons\/[a-zA-Z0-9_-]+\.png$/.test(icon.file)) return { type: "image", file: icon.file, appearance };
   if (icon.type === "emoji" && typeof icon.value === "string" && icon.value.length <= 32 && icon.value.trim()) return { type: "emoji", value: icon.value, appearance };
   return { type: "auto", appearance };
@@ -329,6 +342,7 @@ function buildState() {
       const style = fileStyle(e.name, isDir);
       files.push({
         name: e.name,
+        systemIcon: systemIconCache.get(full) || "",
         path: full,
         isDir: isDir,
         icon: style.icon,
@@ -354,6 +368,7 @@ function buildState() {
       icon: resolveIcon(dir, f.icon),
       fallbackIcon: folderIcon(f.name),
       path: fdir,
+      size: f.size, memberOrder: f.memberOrder || [], wallpaper: f.wallpaper || "",
       position: f.position, panelPosition: f.panelPosition, filePositions: f.filePositions || {}, baseColor: f.baseColor,
       bookcaseId: f.bookcaseId || null, bookcaseStyle: f.bookcaseStyle || "wood",
       note: f.note || "", sessionPath: f.sessionPath || "",
@@ -521,20 +536,20 @@ function setIcon(folderId, icon, dataUrl) {
 }
 
 /* 渲染层传过来的是真实路径（Electron 的 webUtils 拿到的） */
-function moveFiles(folderId, paths) {
+function moveFiles(folderId, paths, relative = "") {
   const dir = ensureShelf();
   const meta = readMeta(dir);
   const target = meta.folders.find((f) => f.id === folderId);
   if (!target) return;
 
   if (target.kind === "portal") throw new Error("映射以只读方式展示，请在资源管理器中向此文件夹添加文件");
-  const targetDir = cellPath(dir, target.name);
+  const targetDir = require("./subfolders").directory(cellPath(dir, target.name), relative);
   if (!Array.isArray(paths) || paths.length > 1000) throw new Error("一次最多移动 1000 个文件");
   const failed = [];
   let moved = 0;
   paths.forEach(function (src) {
     try {
-      if (target.kind === 'bookcase' && typeof src === 'string') {
+      if (!relative && target.kind === 'bookcase' && typeof src === 'string') {
         const member = meta.folders.find(f => f.kind !== 'portal' && path.resolve(src).toLowerCase() === path.resolve(cellPath(dir, f.name)).toLowerCase());
         if (member) { require('./bookcases').assign(meta.folders, member.id, target.id); moved++; return; }
       }
@@ -562,7 +577,7 @@ function moveFiles(folderId, paths) {
 function isInternal(rel) {
   if (!rel) return false;
   const top = rel.split(path.sep)[0];
-  return rel === META_FILE || rel.startsWith(META_FILE + ".") || top === ".icons" || String(rel).split(path.sep).some(p => p.startsWith(".fg-move-"));
+  return rel === META_FILE || rel.startsWith(META_FILE + ".") || top === ".icons" || String(rel).split(path.sep).some(p => p.startsWith(".fg-move-") || p.startsWith(".fg-copy-"));
 }
 
 function scheduleRefresh() {
@@ -603,6 +618,21 @@ function stopWatcher() {
 
 /* ---------------- 消息处理 ---------------- */
 
+const fileMenuItems = require("./file-menus").createFileMenus({
+  resolveFolder(id, relative = "") {
+    const dir = ensureShelf();
+    const folder = readMeta(dir).folders.find(item => item.id === id);
+    if (!folder) throw new Error("目标格子已不存在");
+    const base=folder.kind === "portal" ? folder.portalPath : cellPath(dir, folder.name);
+    return { path: require("./subfolders").directory(base, relative), writable: folder.kind !== "portal" };
+  },
+  scope: (win, task) => requestScope.run(win, task),
+  authorize: authorizedPath,
+  notify: message => send({ type: "toast", message }),
+  onChange(folderId, count) { pushState(); send({ type: "filesLanded", folderId, count }); },
+  withOperation
+});
+
 async function handleMessage(msg) {
   if (!msg || !msg.type) return;
 
@@ -633,15 +663,93 @@ async function handleMessage(msg) {
       await deleteCell(msg.folderId);
       break;
 
-    case "cellMenu": {
-      const target = readMeta(ensureShelf()).folders.find(f => f.id === msg.folderId);
-      if (!target) return;
+    case "systemIcons": {
+      const paths = Array.isArray(msg.paths) ? msg.paths.slice(0,200) : [];
+      const files = paths.map(file => { try { return {path:authorizedPath(file)}; } catch (_) {return null;} }).filter(Boolean);
+      await requestSystemIcons(files); break;
+    }
+    case "workspaceMenu":
       Menu.buildFromTemplate([
-        { label: "在资源管理器中打开", click: () => shell.openPath(target.kind === "portal" ? target.portalPath : cellPath(ensureShelf(), target.name)) },
-        { label: "备注与本地会话…", click: () => send({ type: "requestCellDetails", folderId: target.id }) },
-        { label: "重命名…", click: () => send({ type: "requestRenameCell", folderId: target.id }) },
-        { label: target.kind === "portal" ? "移除文件夹映射" : "删除格子…", click: () => deleteCell(target.id).catch(err => send({ type: "toast", message: err.message })) }
-      ]).popup({ window: mainWindow });
+        {label:"新建格子…",click:()=>send({type:"requestNewCell"})},
+        {label:"新建分区…",click:()=>send({type:"requestNewBookcase"})}
+      ]).popup({window:requestWindow()});break;
+    case "newSubfolder": {
+      const f=readMeta(ensureShelf()).folders.find(f=>f.id===msg.folderId);
+      if(!f || f.kind==="portal")throw new Error("当前分区只读");
+      require("./subfolders").create(cellPath(ensureShelf(),f.name),msg.relative,msg.name);pushState();break;
+    }
+    case "listSubfolder": {
+      const f=readMeta(ensureShelf()).folders.find(f=>f.id===msg.folderId);if(!f)return;
+      const base=f.kind==="portal"?f.portalPath:cellPath(ensureShelf(),f.name);
+      const dir=require("./subfolders").directory(base,msg.relative);
+      const files=fs.readdirSync(dir,{withFileTypes:true}).filter(e=>!e.name.startsWith(".")&&!e.isSymbolicLink()).map(e=>{
+        const full=path.join(dir,e.name),st=fs.statSync(full),style=fileStyle(e.name,e.isDirectory());
+        return {name:e.name,path:full,isDir:e.isDirectory(),icon:style.icon,hue:style.hue,systemIcon:systemIconCache.get(full)||"",sizeLabel:e.isDirectory()?"文件夹":formatSize(st.size),whenLabel:formatWhen(st.mtimeMs),size:st.size,mtimeMs:st.mtimeMs,extension:path.extname(e.name).slice(1),thumb:e.isDirectory()?"":thumbFor(e.name,full)};
+      });
+      send({type:"subfolderState",folderId:f.id,relative:msg.relative,files});break;
+    }
+    case "saveBookcaseGeometry": {
+      const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId&&f.kind==="bookcase");if(!f||config.layoutLocked)return;
+      if(msg.size && [msg.size.width,msg.size.height].every(Number.isFinite)) f.size={width:Math.round(Math.max(210,Math.min(1600,msg.size.width))),height:Math.round(Math.max(100,Math.min(1200,msg.size.height)))};
+      if(Array.isArray(msg.order))f.memberOrder=[...new Set(msg.order)].filter(id=>meta.folders.some(c=>c.id===id&&c.bookcaseId===f.id));
+      writeMeta(dir,meta);pushState();break;
+    }
+    case "setWallpaper": {
+      if(msg.theme && !Object.hasOwn(require("../media/appearance"),msg.theme))return;
+      const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
+      f.wallpaper=msg.theme||"";writeMeta(dir,meta);pushState();break;
+    }
+    case "fileMenu": {
+      const win = requestWindow();
+      Menu.buildFromTemplate(fileMenuItems(win, msg.folderId, msg.path, true, msg.relative || "")).popup({ window: win });
+      break;
+    }
+
+    case "cellMenu": {
+      const dir = ensureShelf(), { folders } = readMeta(dir);
+      const target = folders.find(f => f.id === msg.folderId);
+      if (!target) return;
+      const win = requestWindow();
+      const action = payload => () => requestScope.run(win, () => {
+        if (win.isDestroyed() || shelfDir() !== dir) return;
+        withOperation(() => handleMessage(payload)).catch(error => send({ type: "toast", message: error.message }));
+      });
+      const menu = [
+        {label:"新建格子…",click:()=>win.webContents.send("fg",{type:"requestNewCell"})},
+        {label:"新建分区…",click:()=>win.webContents.send("fg",{type:"requestNewBookcase"})},
+        {type:"separator"},
+        {label:"壁纸背景",submenu:[{label:"跟随颜色",click:action({type:"setWallpaper",folderId:target.id,theme:""})},...Object.entries(require("../media/appearance")).map(([theme,[label]])=>({label,type:"radio",checked:target.wallpaper===theme,click:action({type:"setWallpaper",folderId:target.id,theme})}))]}
+      ];
+      if (target.kind === "bookcase") {
+        const candidates = folders.filter(f => f.kind !== "bookcase" && f.bookcaseId !== target.id);
+        menu.push(
+          { label: "收纳格子", enabled: candidates.length > 0, submenu: candidates.map(f => ({ label: f.name, click: action({ type: "assignBookcase", folderId: f.id, bookcaseId: target.id }) })) },
+          { label: "分区样式", submenu: [["wood","温润木质"],["glass","雾面玻璃"],["minimal","极简白色"]].map(([style,label]) => ({
+            label, type: "radio", checked: (target.bookcaseStyle || "wood") === style,
+            click: action({ type: "setBookcaseStyle", folderId: target.id, style })
+          })) },
+          { label: "背景颜色", submenu: [
+            ...[["","跟随分区样式"],["#27394b","深海蓝"],["#3e513e","苔藓绿"],["#553b34","栗木棕"],["#4a3b59","暮色紫"],["#bfcbd6","银灰"]].map(([color,label]) => ({
+              label, type: "radio", checked: (target.baseColor || "") === color,
+              click: action({ type: "setColor", folderId: target.id, color })
+            })),
+            { type: "separator" },
+            { label: "自定义颜色…", click: () => win.webContents.send("fg", { type: "requestCellColor", folderId: target.id }) }
+          ] },
+          ...fileMenuItems(win, target.id),
+          { type: "separator" }
+        );
+      } else if (target.bookcaseId) {
+        menu.push({ label: "移出分区", click: action({ type: "assignBookcase", folderId: target.id, bookcaseId: null }) });
+      }
+      menu.push(
+        { label: "更换图案…", click: () => win.webContents.send("fg", { type: "requestCellIcon", folderId: target.id }) },
+        { label: "在资源管理器中打开", click: action({ type: "open", path: target.kind === "portal" ? target.portalPath : cellPath(dir, target.name) }) },
+        { label: "备注与本地会话…", click: () => win.webContents.send("fg", { type: "requestCellDetails", folderId: target.id }) },
+        { label: "重命名…", click: () => win.webContents.send("fg", { type: "requestRenameCell", folderId: target.id }) },
+        { label: target.kind === "portal" ? "移除文件夹映射" : target.kind === "bookcase" ? "删除书柜…" : "删除格子…", click: action({ type: "deleteCell", folderId: target.id }) }
+      );
+      Menu.buildFromTemplate(menu).popup({ window: win });
       break;
     }
 
@@ -656,7 +764,7 @@ async function handleMessage(msg) {
       break;
 
     case "move":
-      moveFiles(msg.folderId, msg.paths);
+      moveFiles(msg.folderId, msg.paths, msg.relative);
       break;
 
     case "preview":
@@ -740,26 +848,26 @@ async function handleMessage(msg) {
       const position={x:Math.max(0,Math.min(30000,Math.round(point.x))),y:Math.max(0,Math.min(30000,Math.round(point.y)))};
       if(msg.kind==="toolbar") {config.toolbar=position;saveConfig();return;}
       const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
-      if(msg.kind==="file") { if(f.kind==="portal")throw new Error("映射不支持移动文件");const full=shelfPath(dir,msg.path);if(path.dirname(full)!==cellPath(dir,f.name))throw new Error("文件不属于当前格子");f.sort="manual";f.filePositions=Object.assign(Object.create(null),f.filePositions||{});f.filePositions[path.basename(full)]=position; }
+      if(msg.kind==="file") { if(f.kind==="portal")throw new Error("映射不支持移动文件");const full=shelfPath(dir,msg.path),parent=require("./subfolders").directory(cellPath(dir,f.name),msg.relative);if(path.dirname(full)!==parent)throw new Error("文件不属于当前目录");f.sort="manual";f.filePositions=Object.assign(Object.create(null),f.filePositions||{});f.filePositions[(msg.relative?msg.relative+"/":"")+path.basename(full)]=position; }
       else if(msg.kind==="panel") f.panelPosition=position;
       else f.position=position;
       writeMeta(dir,meta);break;
     }
     case "setColor": {
-      if(!/^#[0-9a-f]{6}$/i.test(msg.color))return;
+      if(msg.color !== "" && !/^#[0-9a-f]{6}$/i.test(msg.color))return;
       const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
-      f.baseColor=msg.color;writeMeta(dir,meta);pushState();break;
+      if(msg.color) f.baseColor=msg.color; else delete f.baseColor;delete f.wallpaper;writeMeta(dir,meta);pushState();break;
     }
     case "trashFile": {
       const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
       if(f.kind==="portal")throw new Error("请在资源管理器中修改映射文件夹的内容");
-      const full=shelfPath(dir,msg.path);if(path.dirname(full)!==cellPath(dir,f.name))throw new Error("文件不属于当前格子");
+      const full=shelfPath(dir,msg.path);if(path.dirname(full)!==require("./subfolders").directory(cellPath(dir,f.name),msg.relative))throw new Error("文件不属于当前目录");
       await shell.trashItem(full);pushState();break;
     }
     case "moveOut": {
       const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);if(!f)return;
       if(f.kind==="portal")throw new Error("请在资源管理器中修改映射文件夹的内容");
-      const full=shelfPath(dir,msg.path);if(path.dirname(full)!==cellPath(dir,f.name))throw new Error("文件不属于当前格子");
+      const full=shelfPath(dir,msg.path);if(path.dirname(full)!==require("./subfolders").directory(cellPath(dir,f.name),msg.relative))throw new Error("文件不属于当前目录");
       let target; const visible = [mainWindow,...compareWindows.all()].filter(w => !w.isDestroyed() && w.isVisible()); visible.forEach(w => w.hide());
       try {target=desktop.dropTarget();} finally {visible.forEach(w => w.showInactive());}
       let destination;
@@ -865,7 +973,7 @@ ipcMain.on("fg", function (event, msg) {
   requestScope.run(origin, () => {
   Promise.resolve()
     .then(function () {
-      const mutations = ["assignBookcase", "setBookcaseStyle", "setFeedback", "saveCellDetails", "setIcon", "setIconAppearance", "setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
+      const mutations = ["newSubfolder","saveBookcaseGeometry","setWallpaper","assignBookcase", "setBookcaseStyle", "setFeedback", "saveCellDetails", "setIcon", "setIconAppearance", "setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
       return mutations.includes(msg.type) ? withOperation(() => handleMessage(msg)) : handleMessage(msg);
     })
     .catch(function (err) {

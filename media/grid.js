@@ -31,6 +31,15 @@
 
   var folders = [];
   var currentId = null;
+  let relativeFolder = "", nestedFiles = null;
+  const iconRequests = new Set();
+  const wallpaperSelect=document.getElementById("wallpaperSelect");
+  wallpaperSelect.innerHTML='<option value="">颜色背景</option>'+Object.entries(window.cellThemes).map(([key,[label]])=>'<option value="'+key+'">'+label+'</option>').join("");
+  wallpaperSelect.onchange=()=>{if(currentId)vscode.postMessage({type:"setWallpaper",folderId:currentId,theme:wallpaperSelect.value});};
+  function applyWallpaper(f){panel.style.setProperty("--panel-wallpaper",window.cellThemes[f.wallpaper]?.[1] || f.baseColor || "rgba(20,26,37,.72)");wallpaperSelect.value=f.wallpaper||"";}
+  function newSubfolder(){if(!currentId)return;const id=currentId,relative=relativeFolder;askText("新建文件夹","新文件夹",name=>vscode.postMessage({type:"newSubfolder",folderId:id,relative,name}));}
+  document.getElementById("newFolderButton").onclick=newSubfolder;
+  document.getElementById("parentFolderButton").onclick=()=>{if(!relativeFolder)return;relativeFolder=relativeFolder.split("/").slice(0,-1).join("/");nestedFiles=null;vscode.postMessage({type:"listSubfolder",folderId:currentId,relative:relativeFolder});};
   const viewQuery = new URLSearchParams(location.search), standalone = viewQuery.has("view");
   let viewInitialized = false;
   if (standalone) document.body.classList.add("compare-window");
@@ -135,6 +144,7 @@
 
       tile.addEventListener("drop", function (e) {
         e.preventDefault();
+        e.stopPropagation();
         tile.classList.remove("drop-target");
         var paths = readPaths(e.dataTransfer);
         if (paths.length) {
@@ -184,7 +194,7 @@
       askNewCell();
     });
     place(add,{x:Math.max(8,innerWidth-115),y:78+Math.ceil(folders.length/5)*96});
-    grid.appendChild(add);
+    add.hidden=true;grid.appendChild(add);
   }
 
   /* 格子封面的三种形态 */
@@ -194,6 +204,8 @@
 
     if (icon.type === "image" && icon.url) {
       body = '<img class="tile-img" src="' + escapeHtml(icon.url) + '" alt="" draggable="false" />';
+    } else if (icon.type === "pattern" && Object.hasOwn(window.cellPatterns, icon.value)) {
+      body = '<img class="pattern-icon face-anim" src="./media/icons/' + icon.value + '.svg" alt="" draggable="false" />';
     } else if (icon.type === "emoji" && icon.value) {
       body = '<span class="icon face-anim">' + escapeHtml(icon.value) + "</span>";
     } else if (!f.files.length) {
@@ -244,7 +256,9 @@
     if (!f) return;
 
     if (currentId && currentId !== id && !standalone) { vscode.postMessage({type:"openCompare",view:"cell",folderId:id}); return; }
-    currentId = id; panel.dataset.folderId = id;
+    relativeFolder="";nestedFiles=null;
+    currentId = id; panel.dataset.folderId = id;applyWallpaper(f);
+    document.getElementById("cellColor").parentElement.hidden = f.kind === "bookcase";
     updatePanelNote(f);
 
     /* 每次打开都从干净的搜索状态开始 */
@@ -257,7 +271,7 @@
     document.getElementById("typeSelect").value = "all";
     renderFiles(f);
     panel.style.setProperty("--h", f.hue);
-    panel.style.backgroundColor=f.baseColor || "rgba(20,26,37,.72)";
+    panel.style.backgroundColor=f.baseColor || "rgba(20,26,37,.72)";applyWallpaper(f);
     document.getElementById("cellColor").value=f.baseColor||"#141a25";
 
     var tile = tileEl(id);
@@ -348,14 +362,19 @@
   function renderFiles(f) {
     fileLayout = [];
     filesEl.innerHTML = "";
+    document.getElementById("parentFolderButton").hidden=!relativeFolder;
+    document.getElementById("newFolderButton").hidden=f.kind==="portal";
+    const requestedFiles=nestedFiles || f.files;
+    const missingIcons=requestedFiles.filter(file=>!file.systemIcon&&!iconRequests.has(file.path)).slice(0,200);
+    if(missingIcons.length){missingIcons.forEach(file=>iconRequests.add(file.path));vscode.postMessage({type:"systemIcons",paths:missingIcons.map(file=>file.path)});}
 
-    var list = window.fileView.select(f.files, searchQuery, document.getElementById("typeSelect").value, document.getElementById("sortSelect").value);
+    var list = window.fileView.select(nestedFiles || f.files, searchQuery, document.getElementById("typeSelect").value, document.getElementById("sortSelect").value);
     document.getElementById("trashZone").hidden = f.kind === "portal";
-    document.getElementById("folderStatus").textContent = f.unavailable || (f.kind === "portal" ? "映射 · 文件保留在原位置" : "");
+    document.getElementById("folderStatus").textContent = f.unavailable || (relativeFolder ? f.name + " / " + relativeFolder : f.kind === "portal" ? "映射 · 文件保留在原位置" : "");
 
     panelCount.textContent = (searchQuery || document.getElementById("typeSelect").value !== "all")
-      ? list.length + " / " + f.files.length + " 个匹配"
-      : f.files.length + " 个项目";
+      ? list.length + " / " + requestedFiles.length + " 个匹配"
+      : requestedFiles.length + " 个项目";
     filesEl.style.setProperty("--content-height", "200px");
 
     if (!list.length) {
@@ -374,15 +393,17 @@
       var el = document.createElement("button");
       el.className = "file";
       el.dataset.path=file.path;
-      var saved=f.filePositions&&Object.prototype.hasOwnProperty.call(f.filePositions,file.name)&&f.filePositions[file.name];
+      const positionKey=(relativeFolder?relativeFolder+"/":"")+file.name;
+      var saved=f.filePositions&&Object.prototype.hasOwnProperty.call(f.filePositions,positionKey)&&f.filePositions[positionKey];
       fileLayout.push({ element: el, index: idx, saved: !searchQuery && document.getElementById("sortSelect").value === "manual" && document.getElementById("typeSelect").value === "all" ? saved : null });
       el.type = "button";
       el.style.setProperty("--h", file.hue);
       el.title = file.path;
 
-      var thumb = file.thumb
+      var thumb = file.isDir ? '<div class="thumb"><img src="./media/icons/folder-native.svg" alt="" draggable="false" /></div>'
+        : /\.(zip|rar|7z|gz|tar|xz)$/i.test(file.name) ? '<div class="thumb"><img src="./media/icons/zip-color.svg" alt="" draggable="false" /></div>' : file.thumb
         ? '<div class="thumb"><img src="' + escapeHtml(file.thumb) + '" alt="" draggable="false" /></div>'
-        : '<div class="thumb"><span>' + escapeHtml(file.icon) + "</span></div>";
+        : file.systemIcon ? '<div class="thumb"><img src="' + escapeHtml(file.systemIcon) + '" alt="" draggable="false" /></div>' : '<div class="thumb"><span>' + escapeHtml(file.icon) + "</span></div>";
 
       el.innerHTML =
         thumb +
@@ -412,6 +433,7 @@
       el.addEventListener("dblclick", function () {
         clearTimeout(previewClickTimer);
         previewClickTimer = null;
+        if(file.isDir){relativeFolder=(relativeFolder?relativeFolder+"/":"")+file.name;nestedFiles=null;vscode.postMessage({type:"listSubfolder",folderId:currentId,relative:relativeFolder});return;}
         if (previewPath) closePreview();
         vscode.postMessage({ type: "open", path: file.path });
       });
@@ -425,11 +447,18 @@
       }
 
       filesEl.appendChild(el);
+      if(file.isDir && f.kind!=="portal"){
+        el.addEventListener("dragover",event=>{event.preventDefault();el.classList.add("drop-target");});
+        el.addEventListener("dragleave",()=>el.classList.remove("drop-target"));
+        el.addEventListener("drop",event=>{event.preventDefault();event.stopPropagation();el.classList.remove("drop-target");const paths=readPaths(event.dataTransfer);if(paths.length)vscode.postMessage({type:"move",folderId:f.id,relative:(relativeFolder?relativeFolder+"/":"")+file.name,paths});});
+      }
       if (f.kind !== "portal") movable(el,el,function(p,event){
         var trash=document.getElementById("trashZone").getBoundingClientRect(),box=panel.getBoundingClientRect();
-        if(inRect(event,trash))vscode.postMessage({type:"trashFile",folderId:f.id,path:file.path});
-        else if(!inRect(event,box)) { var dest=window.cellMicro.targetAt(event.clientX,event.clientY,f.id); if(dest)vscode.postMessage({type:"move",folderId:dest.dataset.id,paths:[file.path]}); else vscode.postMessage({type:"moveOut",folderId:f.id,path:file.path}); }
-        else {document.getElementById("sortSelect").value="manual";f.sort="manual";f.filePositions=f.filePositions||{};f.filePositions[file.name]=p;vscode.postMessage({type:"saveLayout",kind:"file",folderId:f.id,path:file.path,position:p});}
+        const folderTarget=list.find(item=>item.isDir&&item.path!==file.path&&[...filesEl.querySelectorAll('.file')].some(tile=>tile.dataset.path===item.path&&inRect(event,tile.getBoundingClientRect())));
+        if(inRect(event,trash))vscode.postMessage({type:"trashFile",folderId:f.id,relative:relativeFolder,path:file.path});
+        else if(!inRect(event,box)) { var dest=window.cellMicro.targetAt(event.clientX,event.clientY,f.id); if(dest)vscode.postMessage({type:"move",folderId:dest.dataset.id,paths:[file.path]}); else vscode.postMessage({type:"moveOut",folderId:f.id,relative:relativeFolder,path:file.path}); }
+        else if(folderTarget)vscode.postMessage({type:"move",folderId:f.id,relative:(relativeFolder?relativeFolder+"/":"")+folderTarget.name,paths:[file.path]});
+        else {document.getElementById("sortSelect").value="manual";f.sort="manual";f.filePositions=f.filePositions||{};f.filePositions[positionKey]=p;vscode.postMessage({type:"saveLayout",kind:"file",folderId:f.id,relative:relativeFolder,path:file.path,position:p});}
         renderFiles(f);
       },true);
     });
@@ -457,7 +486,10 @@
       closeFolder();
       return;
     }
+    applyWallpaper(f);
+    if(relativeFolder){vscode.postMessage({type:"listSubfolder",folderId:currentId,relative:relativeFolder});return;}
     var keep = filesEl.scrollTop;
+    panel.style.backgroundColor = f.baseColor || "rgba(20,26,37,.72)";
     panelTitle.textContent = f.name; updatePanelNote(f);
     renderFiles(f);
     filesEl.scrollTop = keep; /* 自动刷新时别把滚动位置弹回顶部 */
@@ -931,6 +963,15 @@
 
     var emojiGrid = iconModal.querySelector("#emojiGrid");
     emojiGrid.innerHTML = "";
+    Object.entries(window.cellPatterns).forEach(([value, label]) => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'emoji-btn pattern-option';
+      button.dataset.pattern = value; button.title = label; button.setAttribute('aria-label', label);
+      if (curType === 'pattern' && icon.value === value) button.classList.add('active');
+      const image = document.createElement('img'); image.src = './media/icons/' + value + '.svg'; image.alt = '';
+      button.append(image); emojiGrid.append(button);
+      button.onclick = () => { chooseIcon({ type: 'pattern', value, appearance: appearance.value }); closeIconPicker(); };
+    });
     EMOJI_SET.forEach(function (emoji) {
       var b = document.createElement("button");
       b.type = "button";
@@ -956,6 +997,7 @@
     const el = document.getElementById('newIconPreview'); if (!el) return;
     el.replaceChildren();
     if (newCellDraft.dataUrl) { const image = document.createElement('img'); image.src = newCellDraft.dataUrl; image.style.width = image.style.height = '30px'; el.append(image); }
+    else if(newCellDraft.icon.type === 'pattern') { const image = document.createElement('img'); image.src = './media/icons/' + newCellDraft.icon.value + '.svg'; image.className = 'pattern-icon'; image.alt = ''; el.append(image); }
     else el.textContent = newCellDraft.icon.value || '📁';
   }
   function askNewCell() {
@@ -1076,6 +1118,21 @@
     } else if (msg.type === "inputFocused") {
       var focusEl = document.getElementById(msg.id);
       if (focusEl) focusEl.focus();
+    } else if (msg.type === "subfolderState") {
+      if(currentId===msg.folderId&&relativeFolder===msg.relative){nestedFiles=msg.files;renderFiles(findFolder(currentId));}
+    } else if (msg.type === "requestNewSubfolder") {
+      if(currentId!==msg.folderId)openFolder(msg.folderId);
+      newSubfolder();
+    } else if (msg.type === "requestNewBookcase") {
+      askNewCell();document.getElementById("newCellType").value="bookcase";
+    } else if (msg.type === "requestCellIcon") {
+      openIconPicker(msg.folderId);
+    } else if (msg.type === "requestCellColor") {
+      const cell = findFolder(msg.folderId);
+      if (cell) askText("背景颜色（#RRGGBB）", cell.baseColor || "#27394b", function (color) {
+        if (!/^#[0-9a-f]{6}$/i.test(color)) { toast("请输入六位十六进制颜色，例如 #27394b"); return; }
+        vscode.postMessage({ type: "setColor", folderId: cell.id, color });
+      });
     } else if (msg.type === "requestRenameCell") {
       var renameTarget = findFolder(msg.folderId);
       if (renameTarget) askText("重命名格子", renameTarget.name, function (name) { vscode.postMessage({ type: "renameCell", folderId: renameTarget.id, name: name }); });
@@ -1100,6 +1157,13 @@
   document.addEventListener("dragover", function (event) { event.preventDefault(); });
   document.addEventListener("drop", function (event) { event.preventDefault(); });
 
+  panel.addEventListener("contextmenu", event => {
+    if (!currentId || event.target.closest("input,textarea,select") || event.target.closest("button:not(.file)")) return;
+    event.preventDefault();
+    const file = event.target.closest(".file");
+    vscode.postMessage({ type: event.target.closest(".panel-head") ? "cellMenu" : "fileMenu", folderId: currentId, relative: relativeFolder, path: file?.dataset.path });
+  });
+  document.addEventListener("contextmenu",event=>{if(standalone||event.target.closest(".tile,.bookcase,.panel,.preview-card,.modal,input,textarea,select,button,a"))return;event.preventDefault();vscode.postMessage({type:"workspaceMenu"});});
   backBtn.addEventListener("click", closeFolder);
   document.getElementById("cellDetachBtn").onclick = () => { vscode.postMessage({type:"openCompare",view:"cell",folderId:currentId}); if(!standalone)closeFolder(); };
   document.getElementById("sortSelect").addEventListener("change", function (e) {
@@ -1206,6 +1270,7 @@
   function inRect(e,r){return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;}
   function movable(handle,el,done,fileMode,panelMode){
     handle.addEventListener("pointerdown",function(e){
+      if(handle.closest(".bookcase-members"))return;
       if (standalone && panelMode) return;
       if (layoutLocked && !fileMode && !panelMode) return;
       if (panelMode && e.target.closest("button,input,select")) return;
@@ -1263,7 +1328,12 @@
   movable(toolbar.querySelector(".brand"),toolbar,function(p){vscode.postMessage({type:"saveLayout",kind:"toolbar",position:p});});
   panel.addEventListener("dragover",function(e){e.preventDefault();var f=findFolder(currentId);e.dataTransfer.dropEffect=f&&f.kind!=="portal"?"move":"none";if(f&&f.kind!=="portal")panel.classList.add("drop-target");});
   panel.addEventListener("dragleave",function(e){if(!panel.contains(e.relatedTarget))panel.classList.remove("drop-target");});
-  panel.addEventListener("drop",function(e){e.preventDefault();e.stopPropagation();panel.classList.remove("drop-target");var paths=readPaths(e.dataTransfer);if(currentId&&paths.length)vscode.postMessage({type:"move",folderId:currentId,paths:paths});});
+  panel.addEventListener("drop",function(e){e.preventDefault();e.stopPropagation();panel.classList.remove("drop-target");var paths=readPaths(e.dataTransfer);if(currentId&&paths.length)vscode.postMessage({type:"move",folderId:currentId,relative:relativeFolder,paths:paths});});
+  document.addEventListener("sectionDrag",event=>{
+    activeDrag=event.detail;
+    scheduleRegions();
+    if(!activeDrag && refreshAfterDrag){refreshAfterDrag=false;vscode.postMessage({type:"refresh"});}
+  });
   document.getElementById("cellColor").addEventListener("change",function(e){if(currentId){panel.style.backgroundColor=e.target.value;vscode.postMessage({type:"setColor",folderId:currentId,color:e.target.value});}});
 
   document.getElementById("rootBtn").addEventListener("click", function () { vscode.postMessage({ type: "pickRoot" }); });

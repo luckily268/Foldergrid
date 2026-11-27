@@ -1,0 +1,62 @@
+module.exports=async function(win,js,root,shelf){
+ const fs=require("fs"),path=require("path"),assert=require("assert/strict");
+ const pause=ms=>new Promise(r=>setTimeout(r,ms));
+ const until=async(check,label)=>{for(let i=0;i<100;i++){if(await check())return;await pause(70);}throw Error(label);};
+ const meta=()=>JSON.parse(fs.readFileSync(path.join(shelf,"grid.json"),"utf8"));
+ await js('document.getElementById("newBtn").click();document.getElementById("askInput").value="现代分区";document.getElementById("newCellType").value="bookcase";document.getElementById("newIconButton").click();document.querySelector("[data-pattern=fox-color]").click();document.getElementById("askOk").click()');
+ await until(()=>meta().folders.some(f=>f.name==="现代分区"),"彩色分区创建");
+ const book=meta().folders.find(f=>f.name==="现代分区"),members=meta().folders.filter(f=>f.kind!=="bookcase"&&f.kind!=="portal").slice(0,2);
+ assert.equal(book.icon.value,"fox-color");
+ for(const member of members)await js('window.fg.send('+JSON.stringify({type:"assignBookcase",folderId:member.id,bookcaseId:book.id})+')');
+ await until(()=>js('document.querySelector(".bookcase-members")?.children.length>=2'),"分区成员");
+ const header=await js('(()=>{const r=document.querySelector(".bookcase > .tile").getBoundingClientRect();return{x:Math.round(r.x+r.width/2),y:Math.round(r.y+10)}})()');
+ win.webContents.sendInputEvent({type:"mouseMove",...header});win.webContents.sendInputEvent({type:"mouseDown",button:"left",clickCount:1,...header});
+ win.webContents.sendInputEvent({type:"mouseMove",x:header.x+10,y:header.y+10});
+ await js('window.fg.send({type:"refresh"})');await pause(150);
+ assert.equal(await js('document.querySelectorAll(".bookcase .resize-handle").length'),1,"拖动期间刷新不得重复绑定分区");
+ win.webContents.sendInputEvent({type:"mouseUp",button:"left",clickCount:1,x:header.x+10,y:header.y+10});await pause(300);
+ const grip=await js('(()=>{const r=document.querySelector(".resize-handle").getBoundingClientRect();return{x:Math.round(r.x+10),y:Math.round(r.y+10)}})()');
+ win.webContents.sendInputEvent({type:"mouseMove",...grip});win.webContents.sendInputEvent({type:"mouseDown",button:"left",clickCount:1,...grip});win.webContents.sendInputEvent({type:"mouseMove",x:grip.x+260,y:grip.y+70});await pause(100);win.webContents.sendInputEvent({type:"mouseUp",button:"left",clickCount:1,x:grip.x+260,y:grip.y+70});
+ await until(()=>meta().folders.find(f=>f.id===book.id).size?.width>450,"分区拖动缩放");
+ const positions=await js('[...document.querySelector(".bookcase-members").children].map(e=>{let r=e.getBoundingClientRect();return{x:Math.round(r.x+r.width/2),y:Math.round(r.y+20)}})');
+ const [from,to]=positions;
+ win.webContents.sendInputEvent({type:"mouseMove",...from});win.webContents.sendInputEvent({type:"mouseDown",button:"left",clickCount:1,...from});win.webContents.sendInputEvent({type:"mouseMove",...to});await pause(100);win.webContents.sendInputEvent({type:"mouseUp",button:"left",clickCount:1,...to});
+ await until(()=>meta().folders.find(f=>f.id===book.id).memberOrder?.length===2,"成员交换顺序保存");
+ assert.equal(meta().folders.find(f=>f.id===book.id).memberOrder[0],members[1].id);
+ await js('window.fg.send('+JSON.stringify({type:"setWallpaper",folderId:book.id,theme:"sunset"})+')');await pause(200);
+ await js('document.querySelector('+JSON.stringify('.tile[data-id="'+members[0].id+'"]')+').click()');await pause(600);
+ await js('document.getElementById("newFolderButton").click();document.getElementById("askInput").value="项目子目录";document.getElementById("askOk").click()');
+ const sub=path.join(shelf,members[0].name,"项目子目录");await until(()=>fs.existsSync(sub),"格子内新建文件夹");
+ await js('[...document.querySelectorAll(".file")].find(e=>e.textContent.includes("项目子目录")).dispatchEvent(new MouseEvent("dblclick",{bubbles:true}))');
+ await until(()=>js('!document.getElementById("parentFolderButton").hidden'),"进入子文件夹");
+ await js('document.getElementById("newFolderButton").click();document.getElementById("askInput").value="二级目录";document.getElementById("askOk").click()');
+ await until(()=>fs.existsSync(path.join(sub,"二级目录")),"子文件夹中继续新建");
+ const incoming=path.join(root,"子目录拖入.txt");fs.writeFileSync(incoming,"拖入子目录");
+ await js('var nestedInput=document.createElement("input");nestedInput.type="file";nestedInput.id="nestedInput";document.body.append(nestedInput)');
+ win.webContents.debugger.attach('1.3');
+ try{
+   const doc=await win.webContents.debugger.sendCommand('DOM.getDocument');
+   const input=await win.webContents.debugger.sendCommand('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'#nestedInput'});
+   await win.webContents.debugger.sendCommand('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[incoming]});
+   await js('(()=>{const data=new DataTransfer();data.items.add(nestedInput.files[0]);document.getElementById("panel").dispatchEvent(new DragEvent("drop",{dataTransfer:data,bubbles:true,cancelable:true}));nestedInput.remove()})()');
+ }finally{win.webContents.debugger.detach();}
+ await until(()=>fs.existsSync(path.join(sub,"子目录拖入.txt")),"直接拖入当前子目录");
+ assert.equal(fs.existsSync(path.join(shelf,members[0].name,"子目录拖入.txt")),false);
+ const {Menu}=require('electron'),original=Menu.buildFromTemplate;let menu;
+ Menu.buildFromTemplate=items=>({popup(){menu=items;}});
+ try{
+   await until(()=>js('[...document.querySelectorAll(".file")].some(e=>e.textContent.includes("子目录拖入.txt"))'),"子目录刷新");
+   await js('[...document.querySelectorAll(".file")].find(e=>e.textContent.includes("子目录拖入.txt")).dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true}))');
+   await until(()=>menu,"子目录复制菜单");await menu.find(item=>item.label==="复制").click();menu=null;
+   await js('document.getElementById("files").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true}))');
+   await until(()=>menu,"子目录粘贴菜单");await menu.find(item=>item.label==="粘贴").click();
+   assert.equal(fs.readFileSync(path.join(sub,"子目录拖入 - 副本.txt"),'utf8'),"拖入子目录");
+ }finally{Menu.buildFromTemplate=original;}
+ await js('document.getElementById("parentFolderButton").click()');await pause(300);
+ await until(()=>js('[...document.querySelectorAll(".file .thumb img")].some(e=>e.src.startsWith("data:image"))'),"Windows 官方文件图标");
+ assert.equal(await js('getComputedStyle(document.querySelector(".tile.new")).display'),"none");
+ await js('document.getElementById("wallpaperSelect").value="ocean";document.getElementById("wallpaperSelect").dispatchEvent(new Event("change"))');await until(()=>meta().folders.find(f=>f.id===members[0].id).wallpaper==="ocean","渐变背景持久化");
+ await pause(500);fs.writeFileSync(path.join(root,"../modern-panel.png"),(await win.webContents.capturePage()).toPNG());
+ await js('document.getElementById("back").click()');await pause(500);fs.writeFileSync(path.join(root,"../modern-section.png"),(await win.webContents.capturePage()).toPNG());
+ console.log("分区缩放、成员换位、彩色图案、渐变、新建/进入子文件夹与系统图标通过");
+};

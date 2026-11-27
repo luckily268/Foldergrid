@@ -1,7 +1,7 @@
 {
   "name": "folder-grid",
   "productName": "folder-grid",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "description": "直接放在 Windows 桌面上的文件收纳图标，点击展开玻璃卡",
   "main": "src/main.js",
   "author": "luckily268",
@@ -18,7 +18,7 @@
     "postinstall": "install-electron && node scripts/vendor-pdf.cjs",
     "start": "electron .",
     "check": "node scripts/check.cjs",
-    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs tests/workspace.test.cjs tests/updates.test.cjs tests/startup-layouts.test.cjs tests/preview-plus.test.cjs tests/micro.test.cjs tests/bookcases.test.cjs",
+    "test": "node --test tests/storage.test.cjs tests/preview.test.cjs tests/workspace.test.cjs tests/updates.test.cjs tests/startup-layouts.test.cjs tests/preview-plus.test.cjs tests/micro.test.cjs tests/bookcases.test.cjs tests/subfolders.test.cjs",
     "test:smoke": "electron tests/electron-smoke.cjs",
     "pack": "npm run check && npm test && electron-builder --win --dir --publish never",
     "dist": "npm run check && npm test && electron-builder --win --x64 --publish never && node scripts/checksums.cjs",
@@ -79,7 +79,12 @@
         "repo": "Foldergrid",
         "releaseType": "draft"
       }
-    ]
+    ],
+    "electronLanguages": [
+      "en",
+      "zh"
+    ],
+    "compression": "maximum"
   },
   "engines": {
     "node": ">=22.13.0"

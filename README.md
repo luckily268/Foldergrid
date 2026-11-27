@@ -1,6 +1,8 @@
 # folder-grid Windows
 
-基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.5.0`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
+基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.7.0`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
+
+0.7.0 新增分区拖动缩放与成员换位、八组渐变背景、20 个彩色图案、格子内多级文件夹和 Windows 关联文件图标。完整说明见 [发布说明](RELEASE-NOTES.md)。分区右下角可调整大小，双击内部文件夹进入；工具条 ＋ 或工作区/工具条空白处右键可新建格子和分区。
 
 保留 v0.3.0 的桌面嵌入、玻璃卡预览、格子与文件自由拖动、回收站、底色、封面和位置保存。源码来源与比较见 [UPSTREAM.md](UPSTREAM.md)、[产品调研与开发说明](docs/产品调研与开发说明.md)。
 
@@ -50,11 +52,11 @@ macOS 可运行数据层测试和窗口模式界面测试；`npm start` 的真�
 npm run dist
 ```
 
-产物是 `dist/folder-grid-setup-0.5.0.exe` 与 `dist/SHA256SUMS.txt`。已有 GitHub Actions 可在 Windows runner 检查、测试和打包；本次没有推送或创建 Release。附带的 Windows 解压试用包在 macOS 交叉打包，未作 Windows 实机验收，使用方式见 [Windows试用指南](docs/Windows试用指南.md)。
+产物包括 `dist/folder-grid-setup-0.7.0.exe`、`.blockmap`、`latest.yml` 与 `SHA256SUMS.txt`。GitHub Actions 在 Windows runner 检查、测试并打包；推送与版本一致的标签（当前为 `v0.7.0`）会创建公开 Release，发布说明取自 `RELEASE-NOTES.md`。
 
 ## 数据
 
-每个普通格子对应根目录的真实子文件夹，`grid.json` 保存映射、封面、布局、排序等信息，`.icons/` 保存自定义封面。`%APPDATA%/folder-grid/config.json` 保存根目录与分类规则；同级 `organization-history.json` 保存撤销记录。文件预览沿用原版的 Markdown/TXT/LOG/DOCX 支持，PDF/旧 DOC 使用默认程序打开。
+每个普通格子对应根目录的真实子文件夹，内部可继续建立多级文件夹。`grid.json` 保存映射、封面、布局、排序、分区尺寸和背景等信息，`.icons/` 保存自定义封面。`%APPDATA%/folder-grid/config.json` 保存根目录与分类规则；同级 `organization-history.json` 保存撤销记录。支持 Markdown/TXT/LOG/DOCX 与离线 PDF 预览，旧 DOC 使用默认程序打开。
 
 保留原项目 MIT 许可证，见 [LICENSE](LICENSE)。
 

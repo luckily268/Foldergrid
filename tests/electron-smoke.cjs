@@ -1,6 +1,12 @@
 const desktopMode = process.env.FOLDER_GRID_DESKTOP_TEST === '1';
 if (!desktopMode) process.env.FOLDER_GRID_WINDOW_TEST = '1';
 const { app } = require('electron');
+let copiedFiles = [];
+require('../src/file-clipboard').windowsFileClipboard = () => ({
+  available: () => copiedFiles.length > 0,
+  write: (_win, file) => { copiedFiles = [file]; },
+  read: () => copiedFiles
+});
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const out = path.join(__dirname, '../.test-output'); fs.mkdirSync(out, { recursive: true });
 const root = fs.mkdtempSync(path.join(out, 'smoke-')), shelf = path.join(root, 'shelf');
@@ -18,7 +24,7 @@ function finish(code, error) {
   fs.writeFileSync(path.join(out, 'smoke-result.json'), JSON.stringify({ passed: code === 0, error: error?.stack, events, electron: process.versions.electron }, null, 2));
   if (error) console.error(error); app.exit(code);
 }
-setTimeout(() => finish(1, new Error('启动测试超时')), 90000);
+setTimeout(() => finish(1, new Error('启动测试超时')), 120000);
 const pause = ms => new Promise(r => setTimeout(r, ms));
 let smokeWindowSeen=false;
 app.on('browser-window-created', (_, win) => {
@@ -110,6 +116,7 @@ app.on('browser-window-created', (_, win) => {
       await require('./preview-plus-smoke.cjs')(win,js,root,shelf);
       await require('./micro-smoke.cjs')(win,js,root,shelf);
       await require('./bookcases-smoke.cjs')(win,js,root,shelf);
+      await require('./modern-smoke.cjs')(win,js,root,shelf);
       assert.deepEqual(events, []); finish(0);
     } catch (error) { finish(1, error); }
   });

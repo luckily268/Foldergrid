@@ -1,18 +1,21 @@
 .overlay.show,.preview-layer { pointer-events:none; }.panel,.preview-card { pointer-events:auto; }
 body.modal-open .grid { opacity:1;filter:none;transform:none; }
-.bookcase { width:330px!important; min-height:145px; border-radius:15px; padding:12px; box-sizing:border-box; border:1px solid #e7bc7f77; background:repeating-linear-gradient(0deg,#573b2b,#573b2b 87px,#a5734e 88px,#493121 96px); box-shadow:0 8px 20px #0004; }
-.bookcase[data-style="glass"] { background:linear-gradient(125deg,#34506bd9,#192d49dd);border-color:#a9d8ff66;backdrop-filter:blur(15px); }
-.bookcase[data-style="minimal"] { background:#dee5ebed;border-color:#fff; }.bookcase[data-style="minimal"] .tile-name { color:#25364a;text-shadow:none; }
-.bookcase > .tile { flex-direction:row; width:100%;gap:12px;padding:0 3px 9px; }.bookcase > .tile .tile-face { width:36px;height:36px;flex-shrink:0; }.bookcase > .tile .tile-name { font-size:14px;max-width:230px;font-weight:600; }
-.bookcase-members { display:grid;grid-template-columns:repeat(3,1fr);gap:9px 5px;padding:9px 0;min-height:12px; }
-.bookcase-members .tile-wrap { position:relative!important;left:auto!important;top:auto!important;width:90px;pointer-events:auto; }
-.bookcase-remove { position:absolute;right:0;bottom:0;font-size:11px;border:0;border-radius:4px;background:#15263ae0;color:white;cursor:pointer; }
-.bookcase-controls { display:flex;gap:7px;border-top:1px solid #fff3;padding-top:10px; }.bookcase-controls select { min-width:0;max-width:60%;padding:5px;background:#172739;color:#e8f2ff;border:1px solid #ffffff38;border-radius:5px;font-size:11px; }
+.bookcase { width:248px!important; border-radius:9px; padding:6px; box-sizing:border-box; border:1px solid #e7bc7f55; background:var(--bookcase-background,#443429eb); box-shadow:0 3px 10px #0003; }
+.bookcase[data-style="glass"] { background:var(--bookcase-background,#243a50dd);border-color:#a9d8ff55; }
+.bookcase[data-style="minimal"] { background:var(--bookcase-background,#eff3f7ed);border-color:#fff8; }.bookcase[data-style="minimal"]:not([style*="--bookcase-background"]) .tile-name { color:#25364a;text-shadow:none; }
+.bookcase > .tile { flex-direction:row;width:100%;gap:9px;padding:3px 6px; }.bookcase > .tile .tile-face { width:28px;height:28px;flex-shrink:0; }.bookcase > .tile .tile-name { font-size:13px;max-width:180px;font-weight:600; }
+.bookcase > .tile-edit,.bookcase > .tile-search,.panel-footer label[hidden] { display:none; }
+.bookcase-members { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding-top:5px;margin-top:5px;border-top:1px solid #ffffff26;max-height:232px;overflow:auto; }
+.bookcase-members .tile-wrap { position:relative!important;left:auto!important;top:auto!important;width:auto;pointer-events:auto; }
+.pattern-icon { width:70%;height:70%;object-fit:contain;filter:invert(1) drop-shadow(0 1px 2px #0008); }
+.pattern-option img { width:23px;height:23px;filter:invert(1); }
+#newIconPreview .pattern-icon { width:24px;height:24px; }
+.modal:has(.pattern-option) .emoji-grid { max-height:235px;overflow:auto;padding:3px; }
 .new-type { display:flex;gap:8px;align-items:center;margin:12px 0;font-size:12px; }.new-type[hidden]{display:none;}.new-type select{max-width:150px;background:#21364c;color:white;border:1px solid #ffffff40;padding:6px;border-radius:6px;}
 body.compare-window .topbar,body.compare-window .grid {display:none!important;}
 body.compare-window .overlay,body.compare-window .preview-layer {inset:0;pointer-events:none;background:none;}
 body.compare-window .panel,body.compare-window .preview-card {left:0!important;top:0!important;width:100%!important;height:100%!important;border-radius:0!important;transition:none!important;opacity:1!important;}
-body.compare-window .panel::before {display:none;}body.compare-window .preview-body{padding:18px;}
+body.compare-window .panel::before {display:none;}body.compare-window .preview-body{padding:18px;opacity:1;transition:none;}
 body.compare-window .toast { z-index:9999; }
 body.compare-window .panel-head,body.compare-window .preview-head { -webkit-app-region:drag;cursor:default; }
 body.compare-window .panel-head button,body.compare-window .preview-head button { -webkit-app-region:no-drag; }
