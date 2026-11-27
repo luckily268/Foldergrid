@@ -11,8 +11,11 @@ function createFileMenus({ resolveFolder, authorize, notify, onChange, withOpera
     const folder = resolveFolder(folderId, relative);
     const file = source ? authorize(source) : null;
     const run = task => () => scope(win, () => Promise.resolve().then(task).catch(error => notify(error.message)));
+    const isDirectory=Boolean(file&&fs.statSync(file).isDirectory());
+    const canRename=isDirectory&&folder.writable&&fs.realpathSync(path.dirname(file))===fs.realpathSync(folder.path);
     return [
       { label: "新建文件夹…", enabled: folder.writable, click: () => win.webContents.send("fg", {type:"requestNewSubfolder",folderId}) },
+      { label: "重命名…", visible: visible&&isDirectory, enabled: canRename, click: () => win.webContents.send("fg", {type:"requestRenameSubfolder",folderId,relative,path:file,name:path.basename(file)}) },
       { label: "复制", visible: visible && Boolean(file), click: run(() => {
         getClipboard().write(win, authorize(file));
         notify("已复制 " + path.basename(file));

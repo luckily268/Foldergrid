@@ -1,6 +1,6 @@
 # folder-grid Windows
 
-基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.7.0`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
+基于用户提供的 `folder-grid-source-0.3.0.zip` 开发，当前版本为 `0.7.1`。目标系统：**Windows 10/11 x64**。采用 Electron + 原生 JavaScript；Win32 桌面接入使用 Koffi。
 
 0.7.0 新增分区拖动缩放与成员换位、八组渐变背景、20 个彩色图案、格子内多级文件夹和 Windows 关联文件图标。完整说明见 [发布说明](RELEASE-NOTES.md)。分区右下角可调整大小，双击内部文件夹进入；工具条 ＋ 或工作区/工具条空白处右键可新建格子和分区。
 
@@ -52,7 +52,7 @@ macOS 可运行数据层测试和窗口模式界面测试；`npm start` 的真�
 npm run dist
 ```
 
-产物包括 `dist/folder-grid-setup-0.7.0.exe`、`.blockmap`、`latest.yml` 与 `SHA256SUMS.txt`。GitHub Actions 在 Windows runner 检查、测试并打包；推送与版本一致的标签（当前为 `v0.7.0`）会创建公开 Release，发布说明取自 `RELEASE-NOTES.md`。
+产物包括 `dist/folder-grid-setup-0.7.1.exe`、`.blockmap`、`latest.yml` 与 `SHA256SUMS.txt`。GitHub Actions 在 Windows runner 检查、测试并打包；推送与版本一致的标签（当前为 `v0.7.1`）会创建公开 Release，发布说明取自 `RELEASE-NOTES.md`。
 
 ## 数据
 

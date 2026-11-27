@@ -1,0 +1,13 @@
+.sheet-tabs{display:flex;gap:6px;overflow:auto;padding:4px 0 10px;}
+.sheet-tabs button{flex-shrink:0;border:1px solid #ffffff30;border-radius:9px;background:#25384e;color:#e8f1ff;padding:7px 12px;cursor:pointer;}
+.sheet-tabs button[aria-pressed=true]{background:#397cba;border-color:#82bbec;}
+.sheet-status{font-size:12px;opacity:.75;margin:0 0 10px;}
+.sheet-viewport{overflow:auto;max-height:480px;max-height:60vh;border:1px solid #ffffff30;border-radius:10px;min-height:80px;}
+.sheet-table{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%;color:#e8f0fa;background:#182a3ce8;}
+.sheet-table th,.sheet-table td{border-bottom:1px solid #ffffff16;border-right:1px solid #ffffff16;padding:7px 10px;min-width:90px;max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere;text-align:left;vertical-align:top;}
+.sheet-table thead th{position:sticky;top:0;background:#2c425a;text-align:center;z-index:2;}
+.sheet-table tbody th{position:sticky;left:0;min-width:36px;background:#2c425a;text-align:right;z-index:1;}
+.sheet-table tbody th,.sheet-table thead th:first-child{width:42px;min-width:42px;max-width:42px;}
+.sheet-table thead th:first-child{left:0;z-index:3;}
+.sheet-table tbody tr:nth-child(even) td{background:#ffffff04;}
+.sheet-table tbody tr:hover td{background:#ffffff0c;}

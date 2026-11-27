@@ -115,6 +115,8 @@ function readPreview(filePath) {
     return result({ kind: "properties", label: ext.toUpperCase(), hint: "文件超过 12MB，请用默认程序打开" });
   }
 
+  if (ext === "xlsx") return result({kind:"spreadsheet",label:"XLSX",bytes:new Uint8Array(fs.readFileSync(filePath))});
+
   if (ext === "md" || ext === "markdown" || ext === "txt" || ext === "log") {
     return result({ kind: "markdown", text: fs.readFileSync(filePath, "utf8") });
   }

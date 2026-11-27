@@ -8,6 +8,7 @@ for (const dir of ['src', 'media', 'scripts', 'tests']) {
   }
 }
 const pkg = require('../package.json'), lock = require('../package-lock.json');
+if(require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../media/vendor/xlsx/xlsx.mini.min.js'))).digest('hex')!=='0cb353f830d7288385492c83d277b058ddeac664ca51cf1393aa1fd3e2b70939')throw new Error('离线 XLSX 组件缺失或校验失败');
 for (const file of ['pdf.mjs', 'pdf.worker.mjs', 'LICENSE', 'cmaps/UniGB-UCS2-H.bcmap', 'standard_fonts/LiberationSans-Regular.ttf', 'wasm/openjpeg.wasm', 'iccs/CGATS001Compat-v2-micro.icc']) {
   if (!fs.existsSync(path.join(__dirname, '../media/vendor/pdfjs', file))) throw new Error('缺少离线 PDF.js 资源，请运行 node scripts/vendor-pdf.cjs：' + file);
 }

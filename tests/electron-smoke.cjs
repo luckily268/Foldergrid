@@ -28,6 +28,7 @@ setTimeout(() => finish(1, new Error('启动测试超时')), 120000);
 const pause = ms => new Promise(r => setTimeout(r, ms));
 let smokeWindowSeen=false;
 app.on('browser-window-created', (_, win) => {
+  win.webContents.setBackgroundThrottling(false);
   if(smokeWindowSeen)return;smokeWindowSeen=true;
   win.webContents.on('preload-error', (_, p, e) => events.push(e.message));
   win.webContents.on('did-fail-load', (_, code, text) => events.push({ code, text }));
@@ -117,6 +118,7 @@ app.on('browser-window-created', (_, win) => {
       await require('./micro-smoke.cjs')(win,js,root,shelf);
       await require('./bookcases-smoke.cjs')(win,js,root,shelf);
       await require('./modern-smoke.cjs')(win,js,root,shelf);
+      await require('./spreadsheet-smoke.cjs')(win,js,root,shelf);
       assert.deepEqual(events, []); finish(0);
     } catch (error) { finish(1, error); }
   });

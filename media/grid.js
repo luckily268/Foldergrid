@@ -519,8 +519,8 @@
 
   var previewEls = null;
   var previewPath = null;
-  var previewSource = null, previewGeneration = 0, disposePDF = null;
-  function clearPDF() { previewGeneration++; if (disposePDF) { disposePDF(); disposePDF = null; } }
+  var previewSource = null, previewGeneration = 0, disposePDF = null, disposeSheet = null;
+  function clearPDF() { previewGeneration++; if (disposePDF) { disposePDF(); disposePDF = null; } if(disposeSheet){disposeSheet();disposeSheet=null;} }
 
   function ensurePreview() {
     if (previewEls) return previewEls;
@@ -671,6 +671,14 @@
     const properties = metadataHTML(data.metadata);
     if (data.kind === "markdown") p.body.innerHTML = '<div class="pv-doc">' + renderMarkdown(data.text || "") + '</div>';
     else if (data.kind === "html") p.body.innerHTML = '<div class="pv-doc">' + (data.html || "") + '</div>';
+    else if(data.kind === "spreadsheet"){
+      p.body.innerHTML='<div class="sheet-host"><div class="pv-loading">正在读取表格…</div></div>';
+      const host=p.body.querySelector('.sheet-host');
+      import('./spreadsheet-preview.mjs').then(viewer=>{
+        if(generation!==previewGeneration||target!==previewPath)return;
+        disposeSheet=viewer.showSpreadsheet(host,data.bytes);
+      }).catch(()=>{if(generation===previewGeneration)host.textContent='表格组件加载失败，请用默认程序打开。';});
+    }
     else if (data.kind === "pdf") {
       p.body.innerHTML = '<div class="pdf-host"><div class="pv-loading">正在载入 PDF…</div></div>';
       const host = p.body.querySelector('.pdf-host');
@@ -683,7 +691,7 @@
     } else {
       p.body.innerHTML = (data.image ? '<img class="pv-image" src="' + escapeHtml(data.image) + '" alt="图片预览" />' : '') + (data.hint ? '<p class="pv-hint">' + escapeHtml(data.hint) + '</p>' : '') + properties;
     }
-    if (["markdown", "html", "pdf"].includes(data.kind)) p.body.insertAdjacentHTML('beforeend', '<details class="pv-meta-toggle"><summary>文件属性 · 创建时间与位置</summary>' + properties + '</details>');
+    if (["markdown", "html", "pdf", "spreadsheet"].includes(data.kind)) p.body.insertAdjacentHTML('beforeend', '<details class="pv-meta-toggle"><summary>文件属性 · 创建时间与位置</summary>' + properties + '</details>');
     const actions = document.createElement('div'); actions.className = 'pv-file-actions';
     const open = document.createElement('button'); open.textContent = data.metadata?.isDirectory ? '打开文件夹' : '用默认程序打开'; open.onclick = () => vscode.postMessage({ type: 'open', path: target });
     const reveal = document.createElement('button'); reveal.textContent = '在资源管理器中显示'; reveal.onclick = () => vscode.postMessage({ type: 'reveal', path: target });
@@ -1120,6 +1128,9 @@
       if (focusEl) focusEl.focus();
     } else if (msg.type === "subfolderState") {
       if(currentId===msg.folderId&&relativeFolder===msg.relative){nestedFiles=msg.files;renderFiles(findFolder(currentId));}
+    } else if(msg.type === "requestRenameSubfolder"){
+      const {folderId,relative,path,name}=msg;
+      askText("重命名文件夹",name,newName=>vscode.postMessage({type:"renameSubfolder",folderId,relative,path,name:newName}));
     } else if (msg.type === "requestNewSubfolder") {
       if(currentId!==msg.folderId)openFolder(msg.folderId);
       newSubfolder();

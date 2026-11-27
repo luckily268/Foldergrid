@@ -1,0 +1,43 @@
+module.exports=async function(win,js,root,shelf){
+ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{Menu,BrowserWindow}=require('electron');
+ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ const until=async(check,label)=>{for(let i=0;i<120;i++){if(await check())return;await pause(70);}throw Error(label);};
+ const meta=()=>JSON.parse(fs.readFileSync(path.join(shelf,'grid.json'),'utf8'));
+ const item=name=>'document.querySelector('+JSON.stringify('.file[data-path$="'+name+'"]')+')';
+ const cell=meta().folders.find(f=>f.kind!=='portal'&&f.kind!=='bookcase');
+ const file=path.join(shelf,cell.name,'表格预览.xlsx');fs.writeFileSync(file,require('./spreadsheet-fixture.cjs')());
+ await js('window.fg.send({type:"refresh"})');await pause(300);
+ await js('document.querySelector('+JSON.stringify('.tile[data-id="'+cell.id+'"]')+').click()');await pause(550);
+ await until(()=>js('!!'+item('表格预览.xlsx')),'表格文件刷新');
+ await js(item('表格预览.xlsx')+'.click()');
+ await until(()=>js('document.querySelector(".sheet-table")?.textContent.includes("1,234.50")'),'单击 XLSX 出现格式化内容');
+ assert.equal(await js('document.querySelectorAll(".sheet-tabs button").length'),2);
+ assert.equal(await js('document.querySelectorAll(".sheet-host img").length'),0,'单元格文字不能变成 HTML');
+ await js('document.querySelectorAll(".sheet-tabs button")[1].click()');
+ assert.match(await js('document.querySelector(".sheet-table").textContent'),/对比内容/);
+ await until(()=>js('Number(getComputedStyle(document.querySelector(".preview-body")).opacity)>.99'),'表格预览内容可见');await pause(500);
+ fs.writeFileSync(path.join(root,'../xlsx-preview.png'),(await win.webContents.capturePage()).toPNG());
+ await js('document.getElementById("pvDetach").click()');
+ await until(()=>BrowserWindow.getAllWindows().some(w=>w.fgView?.path===file),'表格独立预览窗口');
+ const comparison=BrowserWindow.getAllWindows().find(w=>w.fgView?.path===file);
+ await until(()=>comparison.webContents.executeJavaScript('document.querySelector(".sheet-table")?.textContent.includes("研发")'),'独立窗口表格加载');comparison.close();await pause(400);
+ await js('document.getElementById("newFolderButton").click();document.getElementById("askInput").value="待改名";document.getElementById("askOk").click()');
+ const old=path.join(shelf,cell.name,'待改名');await until(()=>fs.existsSync(old),'界面新建文件夹');
+ fs.mkdirSync(path.join(old,'子目录'));fs.writeFileSync(path.join(old,'子目录/保留.txt'),'保留内容');
+ await until(()=>js('!!'+item('待改名')),'新文件夹显示');
+ const original=Menu.buildFromTemplate;let menu;
+ Menu.buildFromTemplate=items=>({popup(){menu=items;}});
+ try{
+  await js(item('待改名')+'.dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true}))');
+  await until(()=>menu,'文件夹右键菜单');const rename=menu.find(item=>item.label==='重命名…');assert.ok(rename?.visible&&rename.enabled);await rename.click();
+  await until(()=>js('document.getElementById("askTitle").textContent==="重命名文件夹"&&!document.querySelector(".prompt-modal").parentElement.hidden'),'重命名弹窗');
+  assert.equal(await js('document.getElementById("askInput").value'),'待改名');
+  await js('document.getElementById("askInput").value="项目资料";document.getElementById("askOk").click()');
+  const renamed=path.join(shelf,cell.name,'项目资料');await until(()=>fs.existsSync(renamed),'文件夹改名落盘');
+  assert.equal(fs.existsSync(old),false);assert.equal(fs.readFileSync(path.join(renamed,'子目录/保留.txt'),'utf8'),'保留内容');
+  await until(()=>js('!!'+item('项目资料')),'改名后刷新');
+  await js(item('项目资料')+'.dispatchEvent(new MouseEvent("dblclick",{bubbles:true}))');
+  await until(()=>js('document.getElementById("files").textContent.includes("子目录")'),'改名后仍可进入');
+ }finally{Menu.buildFromTemplate=original;}
+ console.log('XLSX 单击/多表/独立窗口离线预览、文本转义与新建文件夹右键改名和内容保留通过');
+};

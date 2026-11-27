@@ -678,6 +678,17 @@ async function handleMessage(msg) {
       if(!f || f.kind==="portal")throw new Error("当前分区只读");
       require("./subfolders").create(cellPath(ensureShelf(),f.name),msg.relative,msg.name);pushState();break;
     }
+    case "renameSubfolder": {
+      const dir=ensureShelf(),meta=readMeta(dir),f=meta.folders.find(f=>f.id===msg.folderId);
+      if(!f||f.kind==="portal")throw new Error("当前目录只读");
+      const renamed=require("./subfolders").rename(cellPath(dir,f.name),msg.relative,msg.path,msg.name);
+      const prefix=(msg.relative?msg.relative+"/":""),oldKey=prefix+path.basename(renamed.source),newKey=prefix+path.basename(renamed.target);
+      const positions=Object.create(null);
+      for(const [key,value] of Object.entries(f.filePositions||{}))positions[key===oldKey||key.startsWith(oldKey+"/")?newKey+key.slice(oldKey.length):key]=value;
+      f.filePositions=positions;writeMeta(dir,meta);
+      for(const key of systemIconCache.keys())if(key===renamed.source||key.startsWith(renamed.source+path.sep))systemIconCache.delete(key);
+      pushState();send({type:"toast",message:"文件夹已重命名"});break;
+    }
     case "listSubfolder": {
       const f=readMeta(ensureShelf()).folders.find(f=>f.id===msg.folderId);if(!f)return;
       const base=f.kind==="portal"?f.portalPath:cellPath(ensureShelf(),f.name);
@@ -973,7 +984,7 @@ ipcMain.on("fg", function (event, msg) {
   requestScope.run(origin, () => {
   Promise.resolve()
     .then(function () {
-      const mutations = ["newSubfolder","saveBookcaseGeometry","setWallpaper","assignBookcase", "setBookcaseStyle", "setFeedback", "saveCellDetails", "setIcon", "setIconAppearance", "setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
+      const mutations = ["renameSubfolder","newSubfolder","saveBookcaseGeometry","setWallpaper","assignBookcase", "setBookcaseStyle", "setFeedback", "saveCellDetails", "setIcon", "setIconAppearance", "setStartup", "lockLayout", "saveLayoutPreset", "applyLayoutPreset", "deleteLayoutPreset", "newCell", "renameCell", "deleteCell", "move", "moveOut", "trashFile", "executeOrganization", "undoOrganization", "saveRules", "setColor", "saveLayout", "addPortal", "pickRoot", "setSort"];
       return mutations.includes(msg.type) ? withOperation(() => handleMessage(msg)) : handleMessage(msg);
     })
     .catch(function (err) {
